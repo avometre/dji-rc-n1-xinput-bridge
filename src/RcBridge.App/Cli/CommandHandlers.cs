@@ -82,7 +82,7 @@ public sealed partial class CommandHandlers
                 break;
             case PortResolutionStatus.NoDjiMatch:
                 Console.WriteLine("- NOT RESOLVED: no DJI-like VCOM name match.");
-                Console.WriteLine("  Use `--port COMx` manually or verify DJI USB/VCOM driver.");
+                Console.WriteLine("  Use explicit `--port COMx` (Windows) or `--port /dev/ttyACM0` (Linux).");
                 break;
             case PortResolutionStatus.NoPortsDetected:
                 Console.WriteLine("- NOT RESOLVED: no COM ports detected.");
@@ -653,10 +653,10 @@ public sealed partial class CommandHandlers
             case PortResolutionStatus.NoDjiMatch:
                 Console.Error.WriteLine("`--port auto` could not find a DJI-like VCOM port.");
                 PrintDetectedPorts(ports);
-                Console.Error.WriteLine("Use `--port COMx` manually if you know the correct device.");
+                Console.Error.WriteLine("Use `--port COMx` (Windows) or `--port /dev/ttyACM0` (Linux) manually if you know the correct device.");
                 return null;
             case PortResolutionStatus.AmbiguousMatches:
-                Console.Error.WriteLine("`--port auto` found multiple DJI-like ports. Please select one explicitly with `--port COMx`.");
+                Console.Error.WriteLine("`--port auto` found multiple candidate ports. Select one explicitly with `--port COMx` or `--port /dev/ttyACM0`.");
                 PrintCandidates(resolution.Candidates);
                 return null;
             default:

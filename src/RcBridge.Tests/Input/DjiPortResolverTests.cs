@@ -63,6 +63,37 @@ public sealed class DjiPortResolverTests
     }
 
     [Fact]
+    public void ResolveAutoWithSingleLinuxUsbSerialCandidateReturnsResolvedPort()
+    {
+        IReadOnlyList<SerialPortInfo> ports =
+        [
+            new SerialPortInfo("/dev/ttyACM0", "USB Serial Device"),
+            new SerialPortInfo("/dev/ttyS0", string.Empty),
+        ];
+
+        DjiPortResolution result = DjiPortResolver.Resolve("auto", ports);
+
+        result.Status.Should().Be(PortResolutionStatus.Resolved);
+        result.PortName.Should().Be("/dev/ttyACM0");
+    }
+
+    [Fact]
+    public void ResolveAutoWithMultipleLinuxUsbSerialCandidatesReturnsAmbiguous()
+    {
+        IReadOnlyList<SerialPortInfo> ports =
+        [
+            new SerialPortInfo("/dev/ttyACM0", "USB Serial Device"),
+            new SerialPortInfo("/dev/ttyUSB0", "USB Serial Device"),
+        ];
+
+        DjiPortResolution result = DjiPortResolver.Resolve("auto", ports);
+
+        result.Status.Should().Be(PortResolutionStatus.AmbiguousMatches);
+        result.PortName.Should().BeNull();
+        result.Candidates.Should().HaveCount(2);
+    }
+
+    [Fact]
     public void ResolveManualPortSelectsRequestedPort()
     {
         IReadOnlyList<SerialPortInfo> ports =

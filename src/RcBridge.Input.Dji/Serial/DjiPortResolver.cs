@@ -51,6 +51,17 @@ public static class DjiPortResolver
         DjiPortCandidate[] candidates = BuildCandidates(ports);
         if (candidates.Length == 0)
         {
+            DjiPortCandidate[] genericCandidates = BuildGenericSerialCandidates(ports);
+            if (genericCandidates.Length == 1)
+            {
+                return new DjiPortResolution(PortResolutionStatus.Resolved, genericCandidates[0].Port.PortName, genericCandidates);
+            }
+
+            if (genericCandidates.Length > 1)
+            {
+                return new DjiPortResolution(PortResolutionStatus.AmbiguousMatches, null, genericCandidates);
+            }
+
             return new DjiPortResolution(PortResolutionStatus.NoDjiMatch, null, Array.Empty<DjiPortCandidate>());
         }
 
@@ -109,6 +120,63 @@ public static class DjiPortResolver
             }
 
             string reason = reasons.Count == 0 ? "heuristic match" : string.Join(", ", reasons);
+            candidates.Add(new DjiPortCandidate(port, score, reason));
+        }
+
+        return candidates
+            .OrderByDescending(static candidate => candidate.Score)
+            .ThenBy(static candidate => candidate.Port.PortName, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private static DjiPortCandidate[] BuildGenericSerialCandidates(IReadOnlyList<SerialPortInfo> ports)
+    {
+        List<DjiPortCandidate> candidates = new(ports.Count);
+
+        foreach (SerialPortInfo port in ports)
+        {
+            int score = 0;
+            List<string> reasons = new();
+
+            string portName = port.PortName;
+            string friendlyName = port.FriendlyName;
+
+            if (portName.StartsWith("/dev/ttyACM", StringComparison.OrdinalIgnoreCase))
+            {
+                score += 60;
+                reasons.Add("port looks like Linux CDC ACM device");
+            }
+
+            if (portName.StartsWith("/dev/ttyUSB", StringComparison.OrdinalIgnoreCase))
+            {
+                score += 50;
+                reasons.Add("port looks like Linux USB serial device");
+            }
+
+            if (portName.Contains("usbmodem", StringComparison.OrdinalIgnoreCase))
+            {
+                score += 40;
+                reasons.Add("port contains usbmodem");
+            }
+
+            if (portName.Contains("usbserial", StringComparison.OrdinalIgnoreCase))
+            {
+                score += 30;
+                reasons.Add("port contains usbserial");
+            }
+
+            if (friendlyName.Contains("USB", StringComparison.OrdinalIgnoreCase))
+            {
+                score += 15;
+                reasons.Add("friendly name contains USB");
+            }
+
+            if (score <= 0)
+            {
+                continue;
+            }
+
+            string reason = reasons.Count == 0 ? "generic serial heuristic match" : string.Join(", ", reasons);
             candidates.Add(new DjiPortCandidate(port, score, reason));
         }
 

@@ -278,11 +278,11 @@ public sealed partial class LinuxUInputSink : IXInputSink
         }
     }
 
-    [DllImport("libc", SetLastError = true, EntryPoint = "ioctl")]
-    private static extern int IoctlInt(int fd, uint request, int value);
+    [LibraryImport("libc", SetLastError = true, EntryPoint = "ioctl")]
+    private static partial int IoctlInt(int fd, uint request, int value);
 
-    [DllImport("libc", SetLastError = true, EntryPoint = "ioctl")]
-    private static extern int IoctlPtr(int fd, uint request, IntPtr arg);
+    [LibraryImport("libc", SetLastError = true, EntryPoint = "ioctl")]
+    private static partial int IoctlPtr(int fd, uint request, IntPtr arg);
 
     [StructLayout(LayoutKind.Sequential)]
     private struct InputId

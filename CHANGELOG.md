@@ -21,4 +21,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `run` command mode selection: `--mode xinput|dry-run` (cross-platform dry-run support for Linux/macOS).
 - CI expanded to Windows + Linux matrix with CLI smoke checks (`list-ports`, `diagnose`).
 - Linux virtual gamepad output mode (`--mode linux-uinput`) backed by `/dev/uinput` with auto mode selection.
+- Auto port resolution improved with Linux serial heuristics (`/dev/ttyACM*`, `/dev/ttyUSB*`).
 - GitHub templates, CI workflow, and release workflow with checksums.

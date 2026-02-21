@@ -64,8 +64,9 @@ sudo modprobe uinput
 dotnet run --project src/RcBridge.App -- run --port auto --baud 115200 --config config.json --mode linux-uinput
 ```
 
-`--port auto` tries to detect DJI VCOM port by friendly name.
-If multiple candidates exist or no DJI match is found, use explicit `--port COMx`.
+`--port auto` tries to detect DJI VCOM/serial port heuristically.
+On Windows it prefers DJI friendly-name matches; on Linux it prefers `/dev/ttyACM*` / `/dev/ttyUSB*`.
+If multiple candidates exist or no match is found, use explicit `--port COMx` (Windows) or `--port /dev/ttyACM0` (Linux).
 
 5. Diagnose environment:
 ```bash
