@@ -41,6 +41,11 @@ public static class ConfigValidator
             errors.Add("decoder.packedChannelMinRaw must be < decoder.packedChannelMaxRaw.");
         }
 
+        if (!IsAllowedChecksumMode(config.Decoder.ChecksumMode))
+        {
+            errors.Add("decoder.checksumMode must be one of: none, xor8-tail.");
+        }
+
         ValidateAxisBinding("axes.leftThumbX", config.Axes.LeftThumbX, errors);
         ValidateAxisBinding("axes.leftThumbY", config.Axes.LeftThumbY, errors);
         ValidateAxisBinding("axes.rightThumbX", config.Axes.RightThumbX, errors);
@@ -94,5 +99,16 @@ public static class ConfigValidator
         {
             errors.Add($"{path}.threshold must be between -1 and 1.");
         }
+    }
+
+    private static bool IsAllowedChecksumMode(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        return value.Equals("none", StringComparison.OrdinalIgnoreCase)
+            || value.Equals("xor8-tail", StringComparison.OrdinalIgnoreCase);
     }
 }

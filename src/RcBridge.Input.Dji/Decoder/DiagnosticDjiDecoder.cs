@@ -11,6 +11,7 @@ public sealed partial class DiagnosticDjiDecoder : IDjiDecoder
     private readonly ILogger<DiagnosticDjiDecoder> _logger;
     private readonly LengthPrefixedFrameExtractor _frameExtractor;
     private readonly Queue<DecodedFrame> _pendingFrames = new();
+    private int _protocolRejectCount;
 
     public DiagnosticDjiDecoder(DjiDecoderOptions options, ILogger<DiagnosticDjiDecoder> logger)
     {
@@ -87,21 +88,34 @@ public sealed partial class DiagnosticDjiDecoder : IDjiDecoder
     {
         decoded = new DecodedFrame(timestampUtc, new Dictionary<int, float>(), protocolFrame, "invalid");
 
-        if (protocolFrame.Length < 2 || protocolFrame[0] != _options.FrameSyncByte)
+        if (protocolFrame.Length < 2)
         {
+            LogProtocolReject("frame-too-short", protocolFrame.Length);
+            return false;
+        }
+
+        if (protocolFrame[0] != _options.FrameSyncByte)
+        {
+            LogProtocolReject("sync-mismatch", protocolFrame.Length);
             return false;
         }
 
         int payloadLength = protocolFrame[1];
         if (payloadLength <= 0 || 2 + payloadLength > protocolFrame.Length)
         {
+            LogProtocolReject("invalid-payload-length", protocolFrame.Length);
             return false;
         }
 
         ReadOnlySpan<byte> payload = protocolFrame.AsSpan(2, payloadLength);
+        if (!ProtocolChecksum.TryValidate(payload, _options.FrameSyncByte, (byte)payloadLength, _options, out int dataLength))
+        {
+            LogProtocolReject("checksum-failed", protocolFrame.Length);
+            return false;
+        }
 
         bool parsed = Packed11BitChannelDecoder.TryDecode(
-            payload,
+            payload[..dataLength],
             _options.MaxChannels,
             _options.PackedChannelMinRaw,
             _options.PackedChannelMaxRaw,
@@ -109,12 +123,22 @@ public sealed partial class DiagnosticDjiDecoder : IDjiDecoder
 
         if (!parsed)
         {
+            LogProtocolReject("packed11-parse-failed", protocolFrame.Length);
             return false;
         }
 
         decoded = new DecodedFrame(timestampUtc, channels, protocolFrame, "framed-packed11");
         LogMessages.ProtocolFrameDecoded(_logger, protocolFrame.Length, channels.Count);
         return true;
+    }
+
+    private void LogProtocolReject(string reason, int frameLength)
+    {
+        _protocolRejectCount++;
+        if (_protocolRejectCount <= 5 || _protocolRejectCount % 100 == 0)
+        {
+            LogMessages.ProtocolFrameRejected(_logger, frameLength, reason, _protocolRejectCount);
+        }
     }
 
     private DecodedFrame DecodeDiagnostic(RawFrame frame)
@@ -144,5 +168,8 @@ public sealed partial class DiagnosticDjiDecoder : IDjiDecoder
 
         [LoggerMessage(EventId = 1002, Level = LogLevel.Debug, Message = "Protocol frame decoded ({Length} bytes, {ChannelCount} channels)")]
         public static partial void ProtocolFrameDecoded(ILogger logger, int length, int channelCount);
+
+        [LoggerMessage(EventId = 1003, Level = LogLevel.Debug, Message = "Protocol frame rejected ({Length} bytes, reason={Reason}, totalRejects={RejectCount})")]
+        public static partial void ProtocolFrameRejected(ILogger logger, int length, string reason, int rejectCount);
     }
 }

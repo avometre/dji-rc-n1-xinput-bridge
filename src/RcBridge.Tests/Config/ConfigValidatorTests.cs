@@ -28,6 +28,7 @@ public sealed class ConfigValidatorTests
                 DiagnosticMode = true,
                 HexDumpFrames = false,
                 MaxChannels = 0,
+                ChecksumMode = "invalid-mode",
             },
             Axes = new AxisMappings
             {
@@ -55,5 +56,6 @@ public sealed class ConfigValidatorTests
 
         result.IsValid.Should().BeFalse();
         result.Errors.Should().NotBeEmpty();
+        result.Errors.Should().Contain(error => error.Contains("decoder.checksumMode", StringComparison.Ordinal));
     }
 }

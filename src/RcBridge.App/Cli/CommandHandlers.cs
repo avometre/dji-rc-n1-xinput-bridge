@@ -222,6 +222,8 @@ public sealed partial class CommandHandlers
                     MaxFramePayloadLength = config.Decoder.MaxFramePayloadLength,
                     PackedChannelMinRaw = config.Decoder.PackedChannelMinRaw,
                     PackedChannelMaxRaw = config.Decoder.PackedChannelMaxRaw,
+                    ChecksumMode = ParseChecksumMode(config.Decoder.ChecksumMode),
+                    ChecksumIncludesHeader = config.Decoder.ChecksumIncludesHeader,
                 },
                 decoderLogger);
 
@@ -335,6 +337,8 @@ public sealed partial class CommandHandlers
                     MaxFramePayloadLength = config.Decoder.MaxFramePayloadLength,
                     PackedChannelMinRaw = config.Decoder.PackedChannelMinRaw,
                     PackedChannelMaxRaw = config.Decoder.PackedChannelMaxRaw,
+                    ChecksumMode = ParseChecksumMode(config.Decoder.ChecksumMode),
+                    ChecksumIncludesHeader = config.Decoder.ChecksumIncludesHeader,
                 },
                 decoderLogger);
 
@@ -543,6 +547,16 @@ public sealed partial class CommandHandlers
         {
             Console.Error.WriteLine($"- {candidate.Port.DisplayName} (score: {candidate.Score}, reason: {candidate.MatchReason})");
         }
+    }
+
+    private static ProtocolChecksumMode ParseChecksumMode(string? value)
+    {
+        if (value is not null && value.Equals("xor8-tail", StringComparison.OrdinalIgnoreCase))
+        {
+            return ProtocolChecksumMode.Xor8Tail;
+        }
+
+        return ProtocolChecksumMode.None;
     }
 
     private static CancellationTokenSource SetupCtrlC(CancellationToken parentToken)

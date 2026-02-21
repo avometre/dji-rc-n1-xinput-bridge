@@ -30,6 +30,10 @@ public sealed class DecoderOptions
     public int PackedChannelMinRaw { get; init; } = 364;
 
     public int PackedChannelMaxRaw { get; init; } = 1684;
+
+    public string ChecksumMode { get; init; } = "none";
+
+    public bool ChecksumIncludesHeader { get; init; }
 }
 
 public sealed class AxisMappings

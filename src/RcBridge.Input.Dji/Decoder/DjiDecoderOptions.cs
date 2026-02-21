@@ -19,4 +19,8 @@ public sealed class DjiDecoderOptions
     public int PackedChannelMinRaw { get; init; } = 364;
 
     public int PackedChannelMaxRaw { get; init; } = 1684;
+
+    public ProtocolChecksumMode ChecksumMode { get; init; } = ProtocolChecksumMode.None;
+
+    public bool ChecksumIncludesHeader { get; init; }
 }

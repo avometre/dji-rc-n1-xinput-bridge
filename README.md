@@ -5,7 +5,7 @@ Open-source Windows 10/11 bridge application: reads DJI RC-N1 (RC231) controller
 ## English
 
 ### What It Is
-`rcbridge` ingests raw serial data from RC-N1, attempts frame extraction + packed channel decode (experimental), applies normalization/filtering, then emits XInput reports to a virtual Xbox 360 controller.
+`rcbridge` ingests raw serial data from RC-N1, attempts frame extraction + packed channel decode (experimental), applies optional checksum validation, applies normalization/filtering, then emits XInput reports to a virtual Xbox 360 controller.
 
 Core pipeline:
 `SerialFrameSource -> DjiDecoder (framing attempt + diagnostic fallback) -> AxisMapper/Filters -> XInputSink`
@@ -77,6 +77,7 @@ dotnet run --project src/RcBridge.App -- inspect --capture captures/session.bin
 - No input:
   - run `capture` first to verify incoming bytes
   - enable `decoder.hexDumpFrames` for frame logs
+  - if protocol decode is unstable, keep `decoder.checksumMode` as `none` until captures confirm checksum model
 - Game does not detect controller:
   - restart game
   - check Steam Input/remapping conflicts

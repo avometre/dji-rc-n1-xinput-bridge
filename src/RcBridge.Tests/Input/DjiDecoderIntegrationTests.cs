@@ -22,6 +22,7 @@ public sealed class DjiDecoderIntegrationTests
                 MaxFramePayloadLength = 64,
                 PackedChannelMinRaw = 364,
                 PackedChannelMaxRaw = 1684,
+                ChecksumMode = ProtocolChecksumMode.None,
             },
             NullLogger<DiagnosticDjiDecoder>.Instance);
 
@@ -53,12 +54,89 @@ public sealed class DjiDecoderIntegrationTests
         secondDecoded.Channels[3].Should().BeApproximately(-1.0f, 0.10f);
     }
 
-    private static byte[] BuildFrame(byte[] payload)
+    [Fact]
+    public void TryDecodeAcceptsFrameWithXorTailChecksum()
     {
-        byte[] frame = new byte[2 + payload.Length];
+        DiagnosticDjiDecoder decoder = new(
+            new DjiDecoderOptions
+            {
+                DiagnosticMode = false,
+                MaxChannels = 8,
+                EnableProtocolDecodeAttempt = true,
+                FrameSyncByte = 0x55,
+                MinFramePayloadLength = 11,
+                MaxFramePayloadLength = 64,
+                PackedChannelMinRaw = 364,
+                PackedChannelMaxRaw = 1684,
+                ChecksumMode = ProtocolChecksumMode.Xor8Tail,
+                ChecksumIncludesHeader = false,
+            },
+            NullLogger<DiagnosticDjiDecoder>.Instance);
+
+        byte[] payload = Pack11BitValues([364, 1024, 1684, 600, 700, 800, 900, 1000]);
+        byte[] frame = BuildFrame(payload, includeXorChecksumTail: true, includeHeaderInChecksum: false);
+
+        bool ok = decoder.TryDecode(new RawFrame(DateTimeOffset.UtcNow, frame), out DecodedFrame decoded);
+
+        ok.Should().BeTrue();
+        decoded.DecoderHint.Should().Be("framed-packed11");
+        decoded.Channels[1].Should().BeApproximately(-1.0f, 0.10f);
+        decoded.Channels[3].Should().BeApproximately(1.0f, 0.10f);
+    }
+
+    [Fact]
+    public void TryDecodeRejectsFrameWithInvalidXorTailChecksumWhenDiagnosticDisabled()
+    {
+        DiagnosticDjiDecoder decoder = new(
+            new DjiDecoderOptions
+            {
+                DiagnosticMode = false,
+                MaxChannels = 8,
+                EnableProtocolDecodeAttempt = true,
+                FrameSyncByte = 0x55,
+                MinFramePayloadLength = 11,
+                MaxFramePayloadLength = 64,
+                PackedChannelMinRaw = 364,
+                PackedChannelMaxRaw = 1684,
+                ChecksumMode = ProtocolChecksumMode.Xor8Tail,
+                ChecksumIncludesHeader = false,
+            },
+            NullLogger<DiagnosticDjiDecoder>.Instance);
+
+        byte[] payload = Pack11BitValues([364, 1024, 1684, 600, 700, 800, 900, 1000]);
+        byte[] frame = BuildFrame(payload, includeXorChecksumTail: true, includeHeaderInChecksum: false);
+        frame[^1] ^= 0xFF;
+
+        bool ok = decoder.TryDecode(new RawFrame(DateTimeOffset.UtcNow, frame), out _);
+
+        ok.Should().BeFalse();
+    }
+
+    private static byte[] BuildFrame(byte[] payload, bool includeXorChecksumTail = false, bool includeHeaderInChecksum = false)
+    {
+        int payloadLength = payload.Length + (includeXorChecksumTail ? 1 : 0);
+        byte[] frame = new byte[2 + payloadLength];
         frame[0] = 0x55;
-        frame[1] = (byte)payload.Length;
+        frame[1] = (byte)payloadLength;
         payload.CopyTo(frame, 2);
+
+        if (includeXorChecksumTail)
+        {
+            byte checksum = 0;
+            if (includeHeaderInChecksum)
+            {
+                checksum ^= frame[0];
+                checksum ^= frame[1];
+            }
+
+            for (int i = 0; i < payload.Length; i++)
+            {
+                checksum ^= payload[i];
+            }
+
+            frame[^1] = checksum;
+        }
+
         return frame;
     }
 

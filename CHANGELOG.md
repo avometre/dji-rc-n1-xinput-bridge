@@ -16,4 +16,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Capture replay and inspect commands for hardwareless protocol analysis.
 - Capture format v2 with metadata header (`port`, `baudRate`, `note`) and v1 reader compatibility.
 - Experimental protocol decoder path: length-prefixed frame extraction + packed 11-bit channel decode with diagnostic fallback.
+- Optional protocol checksum strategy (`none` / `xor8-tail`) with configurable header inclusion and protocol-reject reason logging.
 - GitHub templates, CI workflow, and release workflow with checksums.

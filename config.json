@@ -7,6 +7,8 @@
     "maxFramePayloadLength": 64,
     "packedChannelMinRaw": 364,
     "packedChannelMaxRaw": 1684,
+    "checksumMode": "none",
+    "checksumIncludesHeader": false,
     "diagnosticMode": true,
     "hexDumpFrames": false,
     "maxChannels": 8

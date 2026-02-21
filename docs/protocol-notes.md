@@ -6,6 +6,10 @@ This project intentionally starts with a diagnostic decoder stub and does not cl
 - Consumes raw serial frames from `System.IO.Ports`.
 - Attempts a length-prefixed frame extraction (`sync + payloadLength + payload`) with configurable sync byte.
 - Attempts packed 11-bit channel decode from extracted payloads (experimental).
+- Supports optional checksum validation hooks:
+  - `checksumMode: "none"` (default)
+  - `checksumMode: "xor8-tail"` (assumes last payload byte is XOR checksum)
+  - `checksumIncludesHeader: true|false` to include `sync + payloadLength` in XOR.
 - Optionally logs per-frame hex dump.
 - Falls back to diagnostic byte-map (`byte -> [-1..1]`) when protocol decode is not available.
 - Supports offline replay from capture files (`replay --capture ... --mode dry-run`).
@@ -39,7 +43,7 @@ Legacy compatibility (`v1`):
 - Stable frame boundary detection.
 - Channel packing format (bit-level mapping).
 - Button/switch layout and scaling calibration.
-- Failsafe/invalid frame handling strategy.
+- Validate checksum assumptions against real captures (current XOR mode is heuristic).
 
 ## How to contribute captures
 1. Run:
