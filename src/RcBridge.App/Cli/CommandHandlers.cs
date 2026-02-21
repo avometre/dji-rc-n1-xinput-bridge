@@ -112,7 +112,13 @@ public sealed partial class CommandHandlers
         }
     }
 
-    public async Task CaptureAsync(string port, int baud, string outputPath, int seconds, CancellationToken cancellationToken)
+    public async Task CaptureAsync(
+        string port,
+        int baud,
+        string outputPath,
+        int seconds,
+        string note,
+        CancellationToken cancellationToken)
     {
         string? resolvedPortCandidate = ResolvePortOrReport(port, "capture");
         if (resolvedPortCandidate is null)
@@ -128,7 +134,17 @@ public sealed partial class CommandHandlers
         try
         {
             using SerialFrameSource source = new(resolvedPort, baud, sourceLogger);
-            await using BinaryCaptureWriter writer = new(outputPath);
+            await using BinaryCaptureWriter writer = new(
+                outputPath,
+                new CaptureMetadata
+                {
+                    CreatedUtc = DateTimeOffset.UtcNow,
+                    Port = resolvedPort,
+                    BaudRate = baud,
+                    Note = note.Trim(),
+                    Tool = "rcbridge",
+                },
+                CaptureFileFormat.MetadataV2);
 
             DateTimeOffset stopAt = DateTimeOffset.UtcNow.AddSeconds(Math.Max(1, seconds));
             int frameCount = 0;
@@ -151,6 +167,7 @@ public sealed partial class CommandHandlers
             await writer.FlushAsync(cts.Token).ConfigureAwait(false);
 
             Console.WriteLine($"Capture complete: {frameCount} frame(s), {totalBytes} byte(s) -> {outputPath}");
+            Console.WriteLine("Capture format: v2 (metadata header + frame records).");
         }
         catch (UnauthorizedAccessException)
         {
@@ -397,6 +414,21 @@ public sealed partial class CommandHandlers
     private static void PrintInspectionReport(string capturePath, CaptureInspectionReport report)
     {
         Console.WriteLine($"== capture inspect: {capturePath} ==");
+
+        if (report.Metadata is not null)
+        {
+            Console.WriteLine();
+            Console.WriteLine("Metadata:");
+            Console.WriteLine($"- formatVersion: {report.Metadata.FormatVersion}");
+            Console.WriteLine($"- createdUtc: {report.Metadata.CreatedUtc:O}");
+            Console.WriteLine($"- port: {report.Metadata.Port}");
+            Console.WriteLine($"- baudRate: {report.Metadata.BaudRate}");
+            if (!string.IsNullOrWhiteSpace(report.Metadata.Note))
+            {
+                Console.WriteLine($"- note: {report.Metadata.Note}");
+            }
+            Console.WriteLine($"- tool: {report.Metadata.Tool}");
+        }
 
         if (report.FrameCount == 0)
         {

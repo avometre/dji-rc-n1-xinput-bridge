@@ -2,6 +2,8 @@ namespace RcBridge.Input.Dji.Capture;
 
 public sealed class CaptureInspectionReport
 {
+    public CaptureMetadata? Metadata { get; init; }
+
     public int FrameCount { get; init; }
 
     public long TotalPayloadBytes { get; init; }

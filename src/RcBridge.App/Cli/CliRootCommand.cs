@@ -56,11 +56,17 @@ public static class CliRootCommand
             Description = "Capture duration in seconds.",
             DefaultValueFactory = static _ => 20,
         };
+        Option<string> noteOption = new("--note")
+        {
+            Description = "Optional note written into capture metadata (v2 format).",
+            DefaultValueFactory = static _ => string.Empty,
+        };
 
         command.Add(portOption);
         command.Add(baudOption);
         command.Add(outOption);
         command.Add(secondsOption);
+        command.Add(noteOption);
 
         command.SetAction(async (parseResult, cancellationToken) =>
         {
@@ -68,8 +74,9 @@ public static class CliRootCommand
             int baud = parseResult.GetValue(baudOption);
             string outputPath = parseResult.GetRequiredValue(outOption);
             int seconds = parseResult.GetValue(secondsOption);
+            string note = parseResult.GetValue(noteOption) ?? string.Empty;
 
-            await handlers.CaptureAsync(port, baud, outputPath, seconds, cancellationToken).ConfigureAwait(false);
+            await handlers.CaptureAsync(port, baud, outputPath, seconds, note, cancellationToken).ConfigureAwait(false);
             return 0;
         });
 

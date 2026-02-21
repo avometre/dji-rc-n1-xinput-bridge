@@ -42,7 +42,7 @@ dotnet run --project src/RcBridge.App -- list-ports
 
 3. Capture frames:
 ```bash
-dotnet run --project src/RcBridge.App -- capture --port auto --baud 115200 --out captures/session.bin --seconds 20
+dotnet run --project src/RcBridge.App -- capture --port auto --baud 115200 --out captures/session.bin --seconds 20 --note "yaw sweep"
 ```
 
 4. Run bridge:
@@ -106,7 +106,7 @@ No DJI proprietary binaries are distributed in this repository.
 ### Hızlı Başlangıç
 ```bash
 dotnet run --project src/RcBridge.App -- list-ports
-dotnet run --project src/RcBridge.App -- capture --port auto --baud 115200 --out captures/session.bin --seconds 20
+dotnet run --project src/RcBridge.App -- capture --port auto --baud 115200 --out captures/session.bin --seconds 20 --note "roll sweep"
 dotnet run --project src/RcBridge.App -- run --port auto --baud 115200 --config config.json
 ```
 

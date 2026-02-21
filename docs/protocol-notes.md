@@ -12,10 +12,26 @@ This project intentionally starts with a diagnostic decoder stub and does not cl
 This is enough to validate end-to-end bridge behavior and tune filtering/mapping while reverse engineering proceeds.
 
 ## Capture format (`capture` command)
-Binary records:
-- `int64` UTC ticks (little-endian)
-- `int32` payload length (little-endian)
-- payload bytes
+Current default (`v2`, metadata-enabled):
+- file header:
+  - ASCII magic: `RCB2` (4 bytes)
+  - metadata length: `int32` little-endian
+  - metadata JSON (UTF-8), fields include:
+    - `formatVersion`
+    - `createdUtc`
+    - `port`
+    - `baudRate`
+    - `note`
+    - `tool`
+- followed by frame records:
+  - `int64` UTC ticks (little-endian)
+  - `int32` payload length (little-endian)
+  - payload bytes
+
+Legacy compatibility (`v1`):
+- no file header
+- only frame records (`int64 ticks + int32 length + payload`)
+- reader remains backward-compatible with v1 captures.
 
 ## What we still need for full protocol decode
 - Stable frame boundary detection.
@@ -26,7 +42,7 @@ Binary records:
 ## How to contribute captures
 1. Run:
 ```bash
-rcbridge capture --port COMx --baud 115200 --out captures/my-session.bin --seconds 20
+rcbridge capture --port auto --baud 115200 --out captures/my-session.bin --seconds 20 --note "yaw sweep"
 ```
 2. Include context in issue/PR:
 - RC-N1 hardware revision (if known)

@@ -69,6 +69,7 @@ public static class CaptureInspector
         {
             return new CaptureInspectionReport
             {
+                Metadata = reader.Metadata,
                 FrameCount = 0,
                 TotalPayloadBytes = 0,
                 MinFrameLength = 0,
@@ -79,6 +80,7 @@ public static class CaptureInspector
 
         return new CaptureInspectionReport
         {
+            Metadata = reader.Metadata,
             FrameCount = frameCount,
             TotalPayloadBytes = totalPayloadBytes,
             MinFrameLength = minFrameLength,
