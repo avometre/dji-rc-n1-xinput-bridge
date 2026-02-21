@@ -16,9 +16,14 @@ dotnet run --project src/RcBridge.App -- diagnose
 dotnet run --project src/RcBridge.App -- capture --port auto --baud 115200 --out captures/session.bin --seconds 20 --note "test sweep"
 dotnet run --project src/RcBridge.App -- inspect --capture captures/session.bin
 dotnet run --project src/RcBridge.App -- inspect --capture captures/session.bin --decode-preview --config config.json
-dotnet run --project src/RcBridge.App -- run --port auto --baud 115200 --config config.json
+dotnet run --project src/RcBridge.App -- run --port auto --baud 115200 --config config.json --mode dry-run
+dotnet run --project src/RcBridge.App -- run --port auto --baud 115200 --config config.json --mode xinput
 dotnet run --project src/RcBridge.App -- replay --capture captures/session.bin --config config.json --mode dry-run
 ```
+
+Notes:
+- `--mode xinput` requires Windows + ViGEmBus.
+- `--mode dry-run` is cross-platform and intended for Linux/macOS development/testing.
 
 ## Coding conventions
 - Keep architecture boundaries clear (`Core` vs IO adapters).
@@ -37,4 +42,4 @@ Open an issue and attach:
 ## Pull requests
 - Keep PRs focused and small.
 - Update docs for user-facing changes.
-- Ensure CI passes on Windows.
+- Ensure CI passes on both Windows and Linux.

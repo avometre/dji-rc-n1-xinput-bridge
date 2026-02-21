@@ -91,24 +91,40 @@ public sealed partial class CommandHandlers
 
         Console.WriteLine();
         Console.WriteLine("Recommended next steps:");
-        if (!probe.IsAvailable)
+        int step = 1;
+
+        if (OperatingSystem.IsWindows())
         {
-            Console.WriteLine("1. Install ViGEmBus, then reboot if requested.");
+            if (!probe.IsAvailable)
+            {
+                Console.WriteLine($"{step}. Install ViGEmBus, then reboot if requested.");
+                step++;
+            }
+        }
+        else
+        {
+            Console.WriteLine($"{step}. Non-Windows detected: use `run --mode dry-run` or `replay --mode dry-run`.");
+            Console.WriteLine("   XInput output (`--mode xinput`) requires Windows 10/11 + ViGEmBus.");
+            step++;
         }
 
         if (ports.Count == 0)
         {
-            Console.WriteLine("2. Install DJI USB/VCOM driver (DJI Assistant 2 may install it), then reconnect RC-N1.");
+            Console.WriteLine($"{step}. Install/check DJI USB/VCOM driver, then reconnect RC-N1.");
         }
         else if (autoPortResolution.Status == PortResolutionStatus.AmbiguousMatches)
         {
-            Console.WriteLine("2. Use explicit port: `rcbridge run --port COMx --baud 115200 --config config.json`.");
-            Console.WriteLine("3. Close apps that may keep COM busy (e.g., DJI Assistant 2).");
+            Console.WriteLine($"{step}. Use explicit port: `rcbridge run --port COMx --baud 115200 --config config.json --mode dry-run`.");
+            step++;
+            Console.WriteLine($"{step}. Close apps that may keep COM busy (e.g., DJI Assistant 2).");
         }
         else
         {
-            Console.WriteLine("2. Run `rcbridge capture --port auto --baud 115200 --out captures/session.bin --seconds 20`.");
-            Console.WriteLine("3. Tune `config.json`, then run `rcbridge run --port auto --baud 115200 --config config.json`.");
+            Console.WriteLine($"{step}. Run `rcbridge capture --port auto --baud 115200 --out captures/session.bin --seconds 20`.");
+            step++;
+
+            string recommendedMode = OperatingSystem.IsWindows() ? "xinput" : "dry-run";
+            Console.WriteLine($"{step}. Tune `config.json`, then run `rcbridge run --port auto --baud 115200 --config config.json --mode {recommendedMode}`.");
         }
     }
 
@@ -183,11 +199,13 @@ public sealed partial class CommandHandlers
         }
     }
 
-    public async Task RunAsync(string port, int baud, string configPath, CancellationToken cancellationToken)
+    public async Task RunAsync(string port, int baud, string configPath, string mode, CancellationToken cancellationToken)
     {
-        if (!OperatingSystem.IsWindows())
+        bool useXInput = mode.Equals("xinput", StringComparison.OrdinalIgnoreCase);
+        if (useXInput && !OperatingSystem.IsWindows())
         {
-            Console.Error.WriteLine("`run` is only supported on Windows 10/11 because ViGEmBus is Windows-only.");
+            Console.Error.WriteLine("`run --mode xinput` is supported only on Windows 10/11.");
+            Console.Error.WriteLine("Use `--mode dry-run` on Linux/macOS for serial+decode pipeline testing.");
             return;
         }
 
@@ -213,13 +231,13 @@ public sealed partial class CommandHandlers
             DiagnosticDjiDecoder decoder = new(BuildDecoderOptions(config, includeHexDump: true), decoderLogger);
 
             AxisMapper mapper = new(config);
-            await using XInputSink sink = new(sinkLogger);
+            await using IXInputSink sink = CreateOutputSink(useXInput, sinkLogger, "run");
             await sink.ConnectAsync(cts.Token).ConfigureAwait(false);
 
             TimeSpan minInterval = TimeSpan.FromSeconds(1.0d / config.UpdateRateHz);
             DateTimeOffset nextWriteAt = DateTimeOffset.MinValue;
 
-            Console.WriteLine("Bridge running. Press Ctrl+C to stop.");
+            Console.WriteLine($"Bridge running in mode '{(useXInput ? "xinput" : "dry-run")}'. Press Ctrl+C to stop.");
 
             await foreach (var frame in source.ReadFramesAsync(cts.Token))
             {
@@ -254,7 +272,7 @@ public sealed partial class CommandHandlers
         catch (ViGEmUnavailableException ex)
         {
             Console.Error.WriteLine(ex.Message);
-            Console.Error.WriteLine("Install ViGEmBus and rerun `rcbridge diagnose`.");
+            Console.Error.WriteLine("Use `--mode dry-run` or install ViGEmBus and rerun `rcbridge diagnose`.");
         }
         catch (IOException ex)
         {
@@ -332,7 +350,7 @@ public sealed partial class CommandHandlers
             AxisMapper mapper = new(config);
             bool useXInput = mode.Equals("xinput", StringComparison.OrdinalIgnoreCase);
 
-            await using IXInputSink sink = CreateReplaySink(useXInput, sinkLogger);
+            await using IXInputSink sink = CreateOutputSink(useXInput, sinkLogger, "replay");
             await sink.ConnectAsync(cts.Token).ConfigureAwait(false);
 
             await using BinaryCaptureReader reader = new(capturePath);
@@ -399,7 +417,7 @@ public sealed partial class CommandHandlers
         }
     }
 
-    private static IXInputSink CreateReplaySink(bool useXInput, ILogger<XInputSink> sinkLogger)
+    private static IXInputSink CreateOutputSink(bool useXInput, ILogger<XInputSink> sinkLogger, string commandName)
     {
         if (!useXInput)
         {
@@ -408,7 +426,7 @@ public sealed partial class CommandHandlers
 
         if (!OperatingSystem.IsWindows())
         {
-            throw new ViGEmUnavailableException("Replay mode 'xinput' is supported only on Windows 10/11.");
+            throw new ViGEmUnavailableException($"{commandName} mode 'xinput' is supported only on Windows 10/11.");
         }
 
         return new XInputSink(sinkLogger);

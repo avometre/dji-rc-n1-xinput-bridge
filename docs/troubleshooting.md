@@ -16,6 +16,11 @@
 - Reboot if installer requests it.
 - Run `rcbridge diagnose` again.
 
+## Running on Linux/macOS
+- `--mode xinput` is Windows-only (ViGEm dependency).
+- Use `run --mode dry-run` for serial/decode pipeline testing.
+- Use `replay --mode dry-run` for hardwareless validation from capture files.
+
 ## No input in games
 - Use `capture` to verify incoming serial bytes.
 - Enable `decoder.hexDumpFrames` and inspect logs in `logs/`.

@@ -1,6 +1,6 @@
 # dji-rc-n1-xinput-bridge
 
-Open-source Windows 10/11 bridge application: reads DJI RC-N1 (RC231) controller data (typically over USB VCOM/serial) and exposes it as a virtual Xbox 360 controller (XInput) via ViGEm.
+Open-source RC-N1 bridge application: reads DJI RC-N1 (RC231) controller data (typically over USB VCOM/serial). On Windows it exposes a virtual Xbox 360 controller (XInput) via ViGEm; on Linux/macOS it supports capture/decode/replay via dry-run mode.
 
 ## English
 
@@ -17,13 +17,14 @@ MVP status:
 - Diagnostic command for COM + ViGEmBus checks
 
 ### Requirements
-- Windows 10/11
-- .NET 8 SDK (for build/test)
-- ViGEmBus driver (runtime prerequisite)
-- DJI USB/VCOM driver may be required
+- .NET 8 SDK (build/test on Windows/Linux)
+- Runtime output modes:
+  - `--mode xinput`: Windows 10/11 + ViGEmBus
+  - `--mode dry-run`: Windows/Linux/macOS (no virtual gamepad output)
+- DJI USB/VCOM driver may be required (especially on Windows)
   - DJI Assistant 2 commonly installs this driver
   - Close DJI Assistant 2 after driver install (it can keep COM port busy)
-- Runtime usage does not require admin rights after drivers are installed.
+- Runtime usage does not require admin rights after drivers are installed (except driver installation itself).
 
 ### Quickstart
 1. Build and test:
@@ -47,7 +48,12 @@ dotnet run --project src/RcBridge.App -- capture --port auto --baud 115200 --out
 
 4. Run bridge:
 ```bash
-dotnet run --project src/RcBridge.App -- run --port auto --baud 115200 --config config.json
+dotnet run --project src/RcBridge.App -- run --port auto --baud 115200 --config config.json --mode xinput
+```
+
+Linux/macOS pipeline test (no ViGEm):
+```bash
+dotnet run --project src/RcBridge.App -- run --port auto --baud 115200 --config config.json --mode dry-run
 ```
 
 `--port auto` tries to detect DJI VCOM port by friendly name.
@@ -86,6 +92,9 @@ dotnet run --project src/RcBridge.App -- inspect --capture captures/session.bin 
 - Game does not detect controller:
   - restart game
   - check Steam Input/remapping conflicts
+- Linux/macOS user:
+  - `--mode xinput` is not available
+  - use `capture`, `inspect`, `replay --mode dry-run`, `run --mode dry-run`
 
 Detailed docs:
 - `docs/troubleshooting.md`
@@ -104,16 +113,18 @@ No DJI proprietary binaries are distributed in this repository.
 `rcbridge`, RC-N1 kumandasından seri veriyi alır, normalize/filter uygular ve ViGEm üzerinden sanal Xbox 360 gamepad olarak oyuna verir.
 
 ### Gereksinimler
-- Windows 10/11
-- .NET 8 SDK
-- ViGEmBus sürücüsü
+- .NET 8 SDK (Windows/Linux geliştirme ve test)
+- Çalışma modları:
+  - `--mode xinput`: Windows 10/11 + ViGEmBus
+  - `--mode dry-run`: Windows/Linux/macOS (sanal gamepad üretmez)
 - Gerekirse DJI USB/VCOM sürücüsü
 
 ### Hızlı Başlangıç
 ```bash
 dotnet run --project src/RcBridge.App -- list-ports
 dotnet run --project src/RcBridge.App -- capture --port auto --baud 115200 --out captures/session.bin --seconds 20 --note "roll sweep"
-dotnet run --project src/RcBridge.App -- run --port auto --baud 115200 --config config.json
+dotnet run --project src/RcBridge.App -- run --port auto --baud 115200 --config config.json --mode xinput
+dotnet run --project src/RcBridge.App -- run --port auto --baud 115200 --config config.json --mode dry-run
 ```
 
 ### Sorun Giderme

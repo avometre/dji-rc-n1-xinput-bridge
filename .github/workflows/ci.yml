@@ -7,7 +7,11 @@ on:
 
 jobs:
   build-test:
-    runs-on: windows-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
 
     steps:
       - name: Checkout
@@ -32,3 +36,8 @@ jobs:
 
       - name: Test
         run: dotnet test RcBridge.sln -c Release --no-build --verbosity normal
+
+      - name: CLI smoke (cross-platform dry-run path)
+        run: |
+          dotnet run --project src/RcBridge.App -- list-ports
+          dotnet run --project src/RcBridge.App -- diagnose

@@ -13,6 +13,7 @@ This project intentionally starts with a diagnostic decoder stub and does not cl
 - Optionally logs per-frame hex dump.
 - Falls back to diagnostic byte-map (`byte -> [-1..1]`) when protocol decode is not available.
 - Supports offline replay from capture files (`replay --capture ... --mode dry-run`).
+- Supports live serial pipeline dry-run on non-Windows via `run --mode dry-run`.
 - Supports offline statistical inspection (`inspect --capture ...`) for frame-size, byte-frequency, and correlation hints.
 - Supports decode-preview inspection (`inspect --decode-preview --config config.json`) to print per-channel min/max/stddev and button/switch candidates.
 

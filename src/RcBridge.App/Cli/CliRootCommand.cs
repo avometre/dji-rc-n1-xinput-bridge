@@ -85,7 +85,7 @@ public static class CliRootCommand
 
     private static Command CreateRunCommand(CommandHandlers handlers)
     {
-        Command command = new("run", "Run bridge from serial input to XInput output.");
+        Command command = new("run", "Run bridge from serial input to output sink (xinput or dry-run).");
 
         Option<string> portOption = new("--port")
         {
@@ -104,18 +104,26 @@ public static class CliRootCommand
             Description = "Configuration JSON file.",
             DefaultValueFactory = static _ => "config.json",
         };
+        Option<string> modeOption = new("--mode")
+        {
+            Description = "Run mode: xinput (ViGEm output) or dry-run (decode/map only).",
+            DefaultValueFactory = static _ => "xinput",
+        };
+        modeOption.AcceptOnlyFromAmong("xinput", "dry-run");
 
         command.Add(portOption);
         command.Add(baudOption);
         command.Add(configOption);
+        command.Add(modeOption);
 
         command.SetAction(async (parseResult, cancellationToken) =>
         {
             string port = parseResult.GetValue(portOption) ?? "auto";
             int baud = parseResult.GetValue(baudOption);
             string configPath = parseResult.GetValue(configOption) ?? "config.json";
+            string mode = parseResult.GetValue(modeOption) ?? "xinput";
 
-            await handlers.RunAsync(port, baud, configPath, cancellationToken).ConfigureAwait(false);
+            await handlers.RunAsync(port, baud, configPath, mode, cancellationToken).ConfigureAwait(false);
             return 0;
         });
 
