@@ -261,6 +261,34 @@ public sealed partial class CommandHandlers
         }
     }
 
+    public async Task InspectAsync(string capturePath, CancellationToken cancellationToken)
+    {
+        using CancellationTokenSource cts = SetupCtrlC(cancellationToken);
+
+        try
+        {
+            CaptureInspectionReport report = await CaptureInspector.InspectAsync(capturePath, cts.Token).ConfigureAwait(false);
+            PrintInspectionReport(capturePath, report);
+        }
+        catch (FileNotFoundException ex)
+        {
+            Console.Error.WriteLine(ex.Message);
+        }
+        catch (InvalidDataException ex)
+        {
+            Console.Error.WriteLine($"Capture file is invalid: {ex.Message}");
+        }
+        catch (OperationCanceledException)
+        {
+            Console.WriteLine("Inspect canceled.");
+        }
+        catch (Exception ex)
+        {
+            LogMessages.InspectUnhandledError(_logger, ex);
+            Console.Error.WriteLine($"Inspect failed: {ex.Message}");
+        }
+    }
+
     public async Task ReplayAsync(string capturePath, string configPath, string mode, CancellationToken cancellationToken)
     {
         using CancellationTokenSource cts = SetupCtrlC(cancellationToken);
@@ -366,6 +394,58 @@ public sealed partial class CommandHandlers
         return new XInputSink(sinkLogger);
     }
 
+    private static void PrintInspectionReport(string capturePath, CaptureInspectionReport report)
+    {
+        Console.WriteLine($"== capture inspect: {capturePath} ==");
+
+        if (report.FrameCount == 0)
+        {
+            Console.WriteLine("No frames found in capture.");
+            return;
+        }
+
+        Console.WriteLine();
+        Console.WriteLine($"Frames: {report.FrameCount}");
+        Console.WriteLine($"Payload bytes: {report.TotalPayloadBytes}");
+        Console.WriteLine(
+            $"Frame length: min={report.MinFrameLength}, max={report.MaxFrameLength}, avg={report.AverageFrameLength:F2}");
+
+        Console.WriteLine();
+        Console.WriteLine("Frame length histogram (top):");
+        foreach (FrameLengthBucket bucket in report.FrameLengthHistogram.Take(10))
+        {
+            Console.WriteLine($"- len={bucket.Length}, count={bucket.Count}");
+        }
+
+        Console.WriteLine();
+        Console.WriteLine("Top byte frequencies:");
+        foreach (ByteFrequencyEntry entry in report.TopByteFrequencies)
+        {
+            Console.WriteLine($"- 0x{entry.Value:X2}: count={entry.Count}, share={(entry.Percentage * 100.0):F2}%");
+        }
+
+        Console.WriteLine();
+        Console.WriteLine("Sync-byte candidates (first-byte frequency):");
+        foreach (SyncByteCandidate candidate in report.SyncByteCandidates)
+        {
+            Console.WriteLine($"- 0x{candidate.Value:X2}: count={candidate.Count}, share={(candidate.Percentage * 100.0):F2}%");
+        }
+
+        Console.WriteLine();
+        Console.WriteLine("Correlation hints (byte-position pairs):");
+        if (report.CorrelationHints.Count == 0)
+        {
+            Console.WriteLine("- none above threshold");
+            return;
+        }
+
+        foreach (CorrelationHint hint in report.CorrelationHints.Take(10))
+        {
+            Console.WriteLine(
+                $"- pos[{hint.PositionA}] <-> pos[{hint.PositionB}] : r={hint.Correlation:F3}, n={hint.SampleCount}");
+        }
+    }
+
     private static string? ResolvePortOrReport(string requestedPort, string commandName)
     {
         IReadOnlyList<SerialPortInfo> ports = SerialPortDiscovery.ListPortInfos();
@@ -444,5 +524,8 @@ public sealed partial class CommandHandlers
 
         [LoggerMessage(EventId = 1302, Level = LogLevel.Error, Message = "Unhandled error in replay command.")]
         public static partial void ReplayUnhandledError(ILogger logger, Exception exception);
+
+        [LoggerMessage(EventId = 1303, Level = LogLevel.Error, Message = "Unhandled error in inspect command.")]
+        public static partial void InspectUnhandledError(ILogger logger, Exception exception);
     }
 }

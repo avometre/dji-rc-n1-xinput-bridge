@@ -7,6 +7,7 @@ This project intentionally starts with a diagnostic decoder stub and does not cl
 - Optionally logs per-frame hex dump.
 - Maps first N bytes to channels heuristically (`byte -> [-1..1]`).
 - Supports offline replay from capture files (`replay --capture ... --mode dry-run`).
+- Supports offline statistical inspection (`inspect --capture ...`) for frame-size, byte-frequency, and correlation hints.
 
 This is enough to validate end-to-end bridge behavior and tune filtering/mapping while reverse engineering proceeds.
 

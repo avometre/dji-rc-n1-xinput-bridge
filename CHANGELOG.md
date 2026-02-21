@@ -13,4 +13,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ViGEm XInput output sink with graceful diagnostics.
 - Typed config loading/validation and axis/button mapping pipeline.
 - Unit tests for deadzone/expo/mapping/config validation.
+- Capture replay and inspect commands for hardwareless protocol analysis.
 - GitHub templates, CI workflow, and release workflow with checksums.

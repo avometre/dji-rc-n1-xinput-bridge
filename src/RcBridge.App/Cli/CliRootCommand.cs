@@ -11,6 +11,7 @@ public static class CliRootCommand
         root.Add(CreateListPortsCommand());
         root.Add(CreateCaptureCommand(handlers));
         root.Add(CreateRunCommand(handlers));
+        root.Add(CreateInspectCommand(handlers));
         root.Add(CreateReplayCommand(handlers));
         root.Add(CreateDiagnoseCommand());
 
@@ -122,6 +123,28 @@ public static class CliRootCommand
             CommandHandlers.Diagnose();
             return 0;
         });
+        return command;
+    }
+
+    private static Command CreateInspectCommand(CommandHandlers handlers)
+    {
+        Command command = new("inspect", "Inspect capture file statistics for protocol analysis.");
+
+        Option<string> captureOption = new("--capture")
+        {
+            Description = "Capture file path created by `capture` command.",
+            Required = true,
+        };
+
+        command.Add(captureOption);
+
+        command.SetAction(async (parseResult, cancellationToken) =>
+        {
+            string capturePath = parseResult.GetRequiredValue(captureOption);
+            await handlers.InspectAsync(capturePath, cancellationToken).ConfigureAwait(false);
+            return 0;
+        });
+
         return command;
     }
 

@@ -63,6 +63,11 @@ dotnet run --project src/RcBridge.App -- diagnose
 dotnet run --project src/RcBridge.App -- replay --capture captures/session.bin --config config.json --mode dry-run
 ```
 
+7. Inspect a capture for reverse-engineering hints:
+```bash
+dotnet run --project src/RcBridge.App -- inspect --capture captures/session.bin
+```
+
 ### Troubleshooting
 - COM port not showing:
   - check cable/driver in Device Manager
