@@ -141,6 +141,11 @@ public static class DjiPortResolver
             string portName = port.PortName;
             string friendlyName = port.FriendlyName;
 
+            if (!LooksLikeUnixSerialPort(portName))
+            {
+                continue;
+            }
+
             if (portName.StartsWith("/dev/ttyACM", StringComparison.OrdinalIgnoreCase))
             {
                 score += 60;
@@ -184,5 +189,10 @@ public static class DjiPortResolver
             .OrderByDescending(static candidate => candidate.Score)
             .ThenBy(static candidate => candidate.Port.PortName, StringComparer.OrdinalIgnoreCase)
             .ToArray();
+    }
+
+    private static bool LooksLikeUnixSerialPort(string portName)
+    {
+        return portName.StartsWith("/dev/", StringComparison.OrdinalIgnoreCase);
     }
 }
