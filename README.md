@@ -58,6 +58,11 @@ If multiple candidates exist or no DJI match is found, use explicit `--port COMx
 dotnet run --project src/RcBridge.App -- diagnose
 ```
 
+6. Replay a capture without hardware:
+```bash
+dotnet run --project src/RcBridge.App -- replay --capture captures/session.bin --config config.json --mode dry-run
+```
+
 ### Troubleshooting
 - COM port not showing:
   - check cable/driver in Device Manager

@@ -11,6 +11,7 @@ public static class CliRootCommand
         root.Add(CreateListPortsCommand());
         root.Add(CreateCaptureCommand(handlers));
         root.Add(CreateRunCommand(handlers));
+        root.Add(CreateReplayCommand(handlers));
         root.Add(CreateDiagnoseCommand());
 
         return root;
@@ -121,6 +122,46 @@ public static class CliRootCommand
             CommandHandlers.Diagnose();
             return 0;
         });
+        return command;
+    }
+
+    private static Command CreateReplayCommand(CommandHandlers handlers)
+    {
+        Command command = new("replay", "Replay a capture file through decoder/mapping/output pipeline.");
+
+        Option<string> captureOption = new("--capture")
+        {
+            Description = "Capture file path created by `capture` command.",
+            Required = true,
+        };
+
+        Option<string> configOption = new("--config")
+        {
+            Description = "Configuration JSON file.",
+            DefaultValueFactory = static _ => "config.json",
+        };
+
+        Option<string> modeOption = new("--mode")
+        {
+            Description = "Replay mode: dry-run (no virtual controller) or xinput (ViGEm output).",
+            DefaultValueFactory = static _ => "dry-run",
+        };
+        modeOption.AcceptOnlyFromAmong("dry-run", "xinput");
+
+        command.Add(captureOption);
+        command.Add(configOption);
+        command.Add(modeOption);
+
+        command.SetAction(async (parseResult, cancellationToken) =>
+        {
+            string capturePath = parseResult.GetRequiredValue(captureOption);
+            string configPath = parseResult.GetValue(configOption) ?? "config.json";
+            string mode = parseResult.GetValue(modeOption) ?? "dry-run";
+
+            await handlers.ReplayAsync(capturePath, configPath, mode, cancellationToken).ConfigureAwait(false);
+            return 0;
+        });
+
         return command;
     }
 }

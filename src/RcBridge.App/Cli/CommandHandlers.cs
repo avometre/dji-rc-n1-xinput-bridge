@@ -1,6 +1,8 @@
 using Microsoft.Extensions.Logging;
+using RcBridge.Core.Abstractions;
 using RcBridge.Core.Config;
 using RcBridge.Core.Mapping;
+using RcBridge.Core.Models;
 using RcBridge.Input.Dji.Capture;
 using RcBridge.Input.Dji.Decoder;
 using RcBridge.Input.Dji.Serial;
@@ -259,6 +261,111 @@ public sealed partial class CommandHandlers
         }
     }
 
+    public async Task ReplayAsync(string capturePath, string configPath, string mode, CancellationToken cancellationToken)
+    {
+        using CancellationTokenSource cts = SetupCtrlC(cancellationToken);
+
+        try
+        {
+            ConfigRoot config = ConfigLoader.LoadAndValidate(configPath);
+
+            ILogger<DiagnosticDjiDecoder> decoderLogger = _loggerFactory.CreateLogger<DiagnosticDjiDecoder>();
+            ILogger<XInputSink> sinkLogger = _loggerFactory.CreateLogger<XInputSink>();
+
+            DiagnosticDjiDecoder decoder = new(
+                new DjiDecoderOptions
+                {
+                    DiagnosticMode = config.Decoder.DiagnosticMode,
+                    HexDumpFrames = config.Decoder.HexDumpFrames,
+                    MaxChannels = config.Decoder.MaxChannels,
+                },
+                decoderLogger);
+
+            AxisMapper mapper = new(config);
+            bool useXInput = mode.Equals("xinput", StringComparison.OrdinalIgnoreCase);
+
+            await using IXInputSink sink = CreateReplaySink(useXInput, sinkLogger);
+            await sink.ConnectAsync(cts.Token).ConfigureAwait(false);
+
+            await using BinaryCaptureReader reader = new(capturePath);
+
+            int frameCount = 0;
+            int decodedCount = 0;
+            int sentCount = 0;
+
+            TimeSpan minInterval = TimeSpan.FromSeconds(1.0d / config.UpdateRateHz);
+            DateTimeOffset nextWriteAt = DateTimeOffset.MinValue;
+
+            Console.WriteLine($"Replay started from {capturePath} in mode '{(useXInput ? "xinput" : "dry-run")}'. Press Ctrl+C to stop.");
+
+            await foreach (var frame in reader.ReadFramesAsync(cts.Token))
+            {
+                frameCount++;
+
+                if (!decoder.TryDecode(frame, out DecodedFrame? decoded))
+                {
+                    continue;
+                }
+
+                decodedCount++;
+
+                DateTimeOffset now = DateTimeOffset.UtcNow;
+                if (now < nextWriteAt)
+                {
+                    continue;
+                }
+
+                var state = mapper.Map(decoded);
+                await sink.SendAsync(state, cts.Token).ConfigureAwait(false);
+                sentCount++;
+                nextWriteAt = now.Add(minInterval);
+            }
+
+            Console.WriteLine($"Replay complete: {frameCount} frame(s), {decodedCount} decoded, {sentCount} sent.");
+        }
+        catch (ConfigValidationException ex)
+        {
+            Console.Error.WriteLine(ex.Message);
+        }
+        catch (FileNotFoundException ex)
+        {
+            Console.Error.WriteLine(ex.Message);
+        }
+        catch (InvalidDataException ex)
+        {
+            Console.Error.WriteLine($"Capture file is invalid: {ex.Message}");
+        }
+        catch (ViGEmUnavailableException ex)
+        {
+            Console.Error.WriteLine(ex.Message);
+            Console.Error.WriteLine("Use `--mode dry-run` or install ViGEmBus.");
+        }
+        catch (OperationCanceledException)
+        {
+            Console.WriteLine("Replay canceled.");
+        }
+        catch (Exception ex)
+        {
+            LogMessages.ReplayUnhandledError(_logger, ex);
+            Console.Error.WriteLine($"Replay failed: {ex.Message}");
+        }
+    }
+
+    private static IXInputSink CreateReplaySink(bool useXInput, ILogger<XInputSink> sinkLogger)
+    {
+        if (!useXInput)
+        {
+            return new ReplayDryRunSink();
+        }
+
+        if (!OperatingSystem.IsWindows())
+        {
+            throw new ViGEmUnavailableException("Replay mode 'xinput' is supported only on Windows 10/11.");
+        }
+
+        return new XInputSink(sinkLogger);
+    }
+
     private static string? ResolvePortOrReport(string requestedPort, string commandName)
     {
         IReadOnlyList<SerialPortInfo> ports = SerialPortDiscovery.ListPortInfos();
@@ -334,5 +441,8 @@ public sealed partial class CommandHandlers
     {
         [LoggerMessage(EventId = 1301, Level = LogLevel.Error, Message = "Unhandled error in run command.")]
         public static partial void RunUnhandledError(ILogger logger, Exception exception);
+
+        [LoggerMessage(EventId = 1302, Level = LogLevel.Error, Message = "Unhandled error in replay command.")]
+        public static partial void ReplayUnhandledError(ILogger logger, Exception exception);
     }
 }

@@ -6,6 +6,7 @@ This project intentionally starts with a diagnostic decoder stub and does not cl
 - Consumes raw serial frames from `System.IO.Ports`.
 - Optionally logs per-frame hex dump.
 - Maps first N bytes to channels heuristically (`byte -> [-1..1]`).
+- Supports offline replay from capture files (`replay --capture ... --mode dry-run`).
 
 This is enough to validate end-to-end bridge behavior and tune filtering/mapping while reverse engineering proceeds.
 
