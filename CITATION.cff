@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+title: "dji-rc-n1-xinput-bridge"
+message: "If you use this project, please cite it using this metadata."
+type: software
+authors:
+  - family-names: "Avometre"
+    given-names: "Community"
+repository-code: "https://github.com/avometre/dji-rc-n1-xinput-bridge"
+license: "MIT"
+version: "0.1.0"
+date-released: "2026-02-20"

@@ -1,0 +1,26 @@
+{
+  "updateRateHz": 100,
+  "decoder": {
+    "diagnosticMode": true,
+    "hexDumpFrames": false,
+    "maxChannels": 8
+  },
+  "axes": {
+    "leftThumbX": { "channel": 1, "deadzone": 0.04, "expo": 0.20, "invert": false, "smoothing": 0.10 },
+    "leftThumbY": { "channel": 2, "deadzone": 0.04, "expo": 0.20, "invert": true, "smoothing": 0.10 },
+    "rightThumbX": { "channel": 3, "deadzone": 0.05, "expo": 0.25, "invert": false, "smoothing": 0.15 },
+    "rightThumbY": { "channel": 4, "deadzone": 0.05, "expo": 0.25, "invert": true, "smoothing": 0.15 },
+    "leftTrigger": { "channel": 5, "deadzone": 0.03, "expo": 0.00, "invert": false, "smoothing": 0.10 },
+    "rightTrigger": { "channel": 6, "deadzone": 0.03, "expo": 0.00, "invert": false, "smoothing": 0.10 }
+  },
+  "buttons": {
+    "a": { "channel": 7, "threshold": 0.60, "invert": false },
+    "b": { "channel": 8, "threshold": 0.60, "invert": false },
+    "x": { "channel": 9, "threshold": 0.60, "invert": false },
+    "y": { "channel": 10, "threshold": 0.60, "invert": false },
+    "leftShoulder": { "channel": 11, "threshold": 0.60, "invert": false },
+    "rightShoulder": { "channel": 12, "threshold": 0.60, "invert": false },
+    "back": { "channel": 13, "threshold": 0.60, "invert": false },
+    "start": { "channel": 14, "threshold": 0.60, "invert": false }
+  }
+}

@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>rcbridge</AssemblyName>
+    <RootNamespace>RcBridge.App</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\RcBridge.Core\RcBridge.Core.csproj" />
+    <ProjectReference Include="..\RcBridge.Input.Dji\RcBridge.Input.Dji.csproj" />
+    <ProjectReference Include="..\RcBridge.Output.XInput\RcBridge.Output.XInput.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.CommandLine" />
+    <PackageReference Include="Serilog" />
+    <PackageReference Include="Serilog.Sinks.Console" />
+    <PackageReference Include="Serilog.Sinks.File" />
+    <PackageReference Include="Serilog.Extensions.Logging" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,57 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore RcBridge.sln
+
+      - name: Build
+        run: dotnet build RcBridge.sln -c Release --no-restore
+
+      - name: Test
+        run: dotnet test RcBridge.sln -c Release --no-build --verbosity normal
+
+      - name: Publish win-x64 single-file
+        run: >-
+          dotnet publish src/RcBridge.App/RcBridge.App.csproj
+          -c Release
+          -r win-x64
+          --self-contained true
+          /p:PublishSingleFile=true
+          /p:IncludeNativeLibrariesForSelfExtract=true
+          /p:PublishTrimmed=false
+          -o artifacts/publish
+
+      - name: Prepare artifacts
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force artifacts | Out-Null
+          Compress-Archive -Path artifacts/publish/* -DestinationPath artifacts/rcbridge-win-x64.zip -Force
+          $hash = (Get-FileHash artifacts/rcbridge-win-x64.zip -Algorithm SHA256).Hash.ToLower()
+          "$hash  rcbridge-win-x64.zip" | Out-File artifacts/SHA256SUMS.txt -Encoding ascii
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/rcbridge-win-x64.zip
+            artifacts/SHA256SUMS.txt
