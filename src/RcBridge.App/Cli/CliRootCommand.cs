@@ -106,10 +106,10 @@ public static class CliRootCommand
         };
         Option<string> modeOption = new("--mode")
         {
-            Description = "Run mode: xinput (ViGEm output) or dry-run (decode/map only).",
-            DefaultValueFactory = static _ => "xinput",
+            Description = "Run mode: auto, xinput, linux-uinput, or dry-run.",
+            DefaultValueFactory = static _ => "auto",
         };
-        modeOption.AcceptOnlyFromAmong("xinput", "dry-run");
+        modeOption.AcceptOnlyFromAmong("auto", "xinput", "linux-uinput", "dry-run");
 
         command.Add(portOption);
         command.Add(baudOption);
@@ -196,10 +196,10 @@ public static class CliRootCommand
 
         Option<string> modeOption = new("--mode")
         {
-            Description = "Replay mode: dry-run (no virtual controller) or xinput (ViGEm output).",
+            Description = "Replay mode: dry-run, xinput, linux-uinput, or auto.",
             DefaultValueFactory = static _ => "dry-run",
         };
-        modeOption.AcceptOnlyFromAmong("dry-run", "xinput");
+        modeOption.AcceptOnlyFromAmong("dry-run", "xinput", "linux-uinput", "auto");
 
         command.Add(captureOption);
         command.Add(configOption);

@@ -1,6 +1,6 @@
 # dji-rc-n1-xinput-bridge
 
-Open-source RC-N1 bridge application: reads DJI RC-N1 (RC231) controller data (typically over USB VCOM/serial). On Windows it exposes a virtual Xbox 360 controller (XInput) via ViGEm; on Linux/macOS it supports capture/decode/replay via dry-run mode.
+Open-source RC-N1 bridge application: reads DJI RC-N1 (RC231) controller data (typically over USB VCOM/serial). On Windows it exposes a virtual Xbox 360 controller (XInput) via ViGEm; on Linux it can expose a virtual gamepad via `uinput`, and on all platforms it supports dry-run diagnostics.
 
 ## English
 
@@ -20,7 +20,9 @@ MVP status:
 - .NET 8 SDK (build/test on Windows/Linux)
 - Runtime output modes:
   - `--mode xinput`: Windows 10/11 + ViGEmBus
+  - `--mode linux-uinput`: Linux + `/dev/uinput` access
   - `--mode dry-run`: Windows/Linux/macOS (no virtual gamepad output)
+  - `--mode auto`: Windows->`xinput`, Linux->`linux-uinput` (or fallback `dry-run`)
 - DJI USB/VCOM driver may be required (especially on Windows)
   - DJI Assistant 2 commonly installs this driver
   - Close DJI Assistant 2 after driver install (it can keep COM port busy)
@@ -48,12 +50,18 @@ dotnet run --project src/RcBridge.App -- capture --port auto --baud 115200 --out
 
 4. Run bridge:
 ```bash
-dotnet run --project src/RcBridge.App -- run --port auto --baud 115200 --config config.json --mode xinput
+dotnet run --project src/RcBridge.App -- run --port auto --baud 115200 --config config.json --mode auto
 ```
 
 Linux/macOS pipeline test (no ViGEm):
 ```bash
 dotnet run --project src/RcBridge.App -- run --port auto --baud 115200 --config config.json --mode dry-run
+```
+
+Linux virtual gamepad output:
+```bash
+sudo modprobe uinput
+dotnet run --project src/RcBridge.App -- run --port auto --baud 115200 --config config.json --mode linux-uinput
 ```
 
 `--port auto` tries to detect DJI VCOM port by friendly name.
@@ -94,7 +102,8 @@ dotnet run --project src/RcBridge.App -- inspect --capture captures/session.bin 
   - check Steam Input/remapping conflicts
 - Linux/macOS user:
   - `--mode xinput` is not available
-  - use `capture`, `inspect`, `replay --mode dry-run`, `run --mode dry-run`
+  - on Linux prefer `--mode linux-uinput` (requires `/dev/uinput` write access)
+  - otherwise use `capture`, `inspect`, `replay --mode dry-run`, `run --mode dry-run`
 
 Detailed docs:
 - `docs/troubleshooting.md`
@@ -116,14 +125,17 @@ No DJI proprietary binaries are distributed in this repository.
 - .NET 8 SDK (Windows/Linux geliştirme ve test)
 - Çalışma modları:
   - `--mode xinput`: Windows 10/11 + ViGEmBus
+  - `--mode linux-uinput`: Linux + `/dev/uinput`
   - `--mode dry-run`: Windows/Linux/macOS (sanal gamepad üretmez)
+  - `--mode auto`: Windows'ta `xinput`, Linux'ta `linux-uinput` (mümkün değilse `dry-run`)
 - Gerekirse DJI USB/VCOM sürücüsü
 
 ### Hızlı Başlangıç
 ```bash
 dotnet run --project src/RcBridge.App -- list-ports
 dotnet run --project src/RcBridge.App -- capture --port auto --baud 115200 --out captures/session.bin --seconds 20 --note "roll sweep"
-dotnet run --project src/RcBridge.App -- run --port auto --baud 115200 --config config.json --mode xinput
+dotnet run --project src/RcBridge.App -- run --port auto --baud 115200 --config config.json --mode auto
+dotnet run --project src/RcBridge.App -- run --port auto --baud 115200 --config config.json --mode linux-uinput
 dotnet run --project src/RcBridge.App -- run --port auto --baud 115200 --config config.json --mode dry-run
 ```
 

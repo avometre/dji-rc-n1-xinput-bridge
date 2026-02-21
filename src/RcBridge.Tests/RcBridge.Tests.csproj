@@ -8,6 +8,7 @@
   <ItemGroup>
     <ProjectReference Include="..\RcBridge.Core\RcBridge.Core.csproj" />
     <ProjectReference Include="..\RcBridge.Input.Dji\RcBridge.Input.Dji.csproj" />
+    <ProjectReference Include="..\RcBridge.Output.Linux\RcBridge.Output.Linux.csproj" />
   </ItemGroup>
 
   <ItemGroup>

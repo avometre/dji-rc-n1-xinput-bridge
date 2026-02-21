@@ -18,6 +18,10 @@
 
 ## Running on Linux/macOS
 - `--mode xinput` is Windows-only (ViGEm dependency).
+- Linux virtual gamepad mode uses `/dev/uinput`.
+  - load module: `sudo modprobe uinput`
+  - verify node: `ls -l /dev/uinput /dev/input/uinput`
+  - ensure current user can write device node (group/udev rule).
 - Use `run --mode dry-run` for serial/decode pipeline testing.
 - Use `replay --mode dry-run` for hardwareless validation from capture files.
 

@@ -6,6 +6,7 @@ using RcBridge.Core.Models;
 using RcBridge.Input.Dji.Capture;
 using RcBridge.Input.Dji.Decoder;
 using RcBridge.Input.Dji.Serial;
+using RcBridge.Output.Linux.UInput;
 using RcBridge.Output.XInput.XInput;
 
 namespace RcBridge.App.Cli;
@@ -49,6 +50,12 @@ public sealed partial class CommandHandlers
             probe = new ViGEmProbeResult(false, "ViGEm probe is only supported on Windows 10/11.");
         }
 
+        UInputProbeResult? uinputProbe = null;
+        if (OperatingSystem.IsLinux())
+        {
+            uinputProbe = UInputAvailabilityProbe.Probe();
+        }
+
         Console.WriteLine("== rcbridge diagnostics ==");
         Console.WriteLine();
 
@@ -89,6 +96,13 @@ public sealed partial class CommandHandlers
         Console.WriteLine("ViGEmBus:");
         Console.WriteLine($"- {(probe.IsAvailable ? "OK" : "NOT AVAILABLE")}: {probe.Message}");
 
+        if (uinputProbe is not null)
+        {
+            Console.WriteLine();
+            Console.WriteLine("Linux uinput:");
+            Console.WriteLine($"- {(uinputProbe.IsAvailable ? "OK" : "NOT AVAILABLE")}: {uinputProbe.Message}");
+        }
+
         Console.WriteLine();
         Console.WriteLine("Recommended next steps:");
         int step = 1;
@@ -103,7 +117,17 @@ public sealed partial class CommandHandlers
         }
         else
         {
-            Console.WriteLine($"{step}. Non-Windows detected: use `run --mode dry-run` or `replay --mode dry-run`.");
+            if (uinputProbe?.IsAvailable == true)
+            {
+                Console.WriteLine($"{step}. Non-Windows detected: use `run --mode linux-uinput` for virtual gamepad output.");
+                Console.WriteLine("   Use `--mode dry-run` if you only want decode/mapping diagnostics.");
+            }
+            else
+            {
+                Console.WriteLine($"{step}. Non-Windows detected: use `run --mode dry-run` or `replay --mode dry-run`.");
+                Console.WriteLine("   To enable Linux virtual gamepad output: `sudo modprobe uinput` then grant `/dev/uinput` write access.");
+            }
+
             Console.WriteLine("   XInput output (`--mode xinput`) requires Windows 10/11 + ViGEmBus.");
             step++;
         }
@@ -114,7 +138,11 @@ public sealed partial class CommandHandlers
         }
         else if (autoPortResolution.Status == PortResolutionStatus.AmbiguousMatches)
         {
-            Console.WriteLine($"{step}. Use explicit port: `rcbridge run --port COMx --baud 115200 --config config.json --mode dry-run`.");
+            string manualMode = OperatingSystem.IsWindows()
+                ? "xinput"
+                : (uinputProbe?.IsAvailable == true ? "linux-uinput" : "dry-run");
+
+            Console.WriteLine($"{step}. Use explicit port: `rcbridge run --port COMx --baud 115200 --config config.json --mode {manualMode}`.");
             step++;
             Console.WriteLine($"{step}. Close apps that may keep COM busy (e.g., DJI Assistant 2).");
         }
@@ -123,7 +151,9 @@ public sealed partial class CommandHandlers
             Console.WriteLine($"{step}. Run `rcbridge capture --port auto --baud 115200 --out captures/session.bin --seconds 20`.");
             step++;
 
-            string recommendedMode = OperatingSystem.IsWindows() ? "xinput" : "dry-run";
+            string recommendedMode = OperatingSystem.IsWindows()
+                ? "xinput"
+                : (uinputProbe?.IsAvailable == true ? "linux-uinput" : "dry-run");
             Console.WriteLine($"{step}. Tune `config.json`, then run `rcbridge run --port auto --baud 115200 --config config.json --mode {recommendedMode}`.");
         }
     }
@@ -201,11 +231,8 @@ public sealed partial class CommandHandlers
 
     public async Task RunAsync(string port, int baud, string configPath, string mode, CancellationToken cancellationToken)
     {
-        bool useXInput = mode.Equals("xinput", StringComparison.OrdinalIgnoreCase);
-        if (useXInput && !OperatingSystem.IsWindows())
+        if (!TryResolveOutputMode(mode, "run", out OutputMode outputMode))
         {
-            Console.Error.WriteLine("`run --mode xinput` is supported only on Windows 10/11.");
-            Console.Error.WriteLine("Use `--mode dry-run` on Linux/macOS for serial+decode pipeline testing.");
             return;
         }
 
@@ -225,19 +252,20 @@ public sealed partial class CommandHandlers
 
             ILogger<SerialFrameSource> sourceLogger = _loggerFactory.CreateLogger<SerialFrameSource>();
             ILogger<DiagnosticDjiDecoder> decoderLogger = _loggerFactory.CreateLogger<DiagnosticDjiDecoder>();
-            ILogger<XInputSink> sinkLogger = _loggerFactory.CreateLogger<XInputSink>();
+            ILogger<XInputSink> xInputSinkLogger = _loggerFactory.CreateLogger<XInputSink>();
+            ILogger<LinuxUInputSink> linuxUInputSinkLogger = _loggerFactory.CreateLogger<LinuxUInputSink>();
 
             using SerialFrameSource source = new(resolvedPort, baud, sourceLogger);
             DiagnosticDjiDecoder decoder = new(BuildDecoderOptions(config, includeHexDump: true), decoderLogger);
 
             AxisMapper mapper = new(config);
-            await using IXInputSink sink = CreateOutputSink(useXInput, sinkLogger, "run");
+            await using IXInputSink sink = CreateOutputSink(outputMode, xInputSinkLogger, linuxUInputSinkLogger, "run");
             await sink.ConnectAsync(cts.Token).ConfigureAwait(false);
 
             TimeSpan minInterval = TimeSpan.FromSeconds(1.0d / config.UpdateRateHz);
             DateTimeOffset nextWriteAt = DateTimeOffset.MinValue;
 
-            Console.WriteLine($"Bridge running in mode '{(useXInput ? "xinput" : "dry-run")}'. Press Ctrl+C to stop.");
+            Console.WriteLine($"Bridge running in mode '{GetOutputModeLabel(outputMode)}'. Press Ctrl+C to stop.");
 
             await foreach (var frame in source.ReadFramesAsync(cts.Token))
             {
@@ -273,6 +301,15 @@ public sealed partial class CommandHandlers
         {
             Console.Error.WriteLine(ex.Message);
             Console.Error.WriteLine("Use `--mode dry-run` or install ViGEmBus and rerun `rcbridge diagnose`.");
+        }
+        catch (LinuxUInputUnavailableException ex)
+        {
+            Console.Error.WriteLine(ex.Message);
+            Console.Error.WriteLine("Use `--mode dry-run` or run `rcbridge diagnose` to verify `/dev/uinput` readiness.");
+        }
+        catch (LinuxOutputException ex)
+        {
+            Console.Error.WriteLine($"Linux uinput output failed: {ex.Message}");
         }
         catch (IOException ex)
         {
@@ -340,17 +377,22 @@ public sealed partial class CommandHandlers
 
         try
         {
+            if (!TryResolveOutputMode(mode, "replay", out OutputMode outputMode))
+            {
+                return;
+            }
+
             ConfigRoot config = ConfigLoader.LoadAndValidate(configPath);
 
             ILogger<DiagnosticDjiDecoder> decoderLogger = _loggerFactory.CreateLogger<DiagnosticDjiDecoder>();
-            ILogger<XInputSink> sinkLogger = _loggerFactory.CreateLogger<XInputSink>();
+            ILogger<XInputSink> xInputSinkLogger = _loggerFactory.CreateLogger<XInputSink>();
+            ILogger<LinuxUInputSink> linuxUInputSinkLogger = _loggerFactory.CreateLogger<LinuxUInputSink>();
 
             DiagnosticDjiDecoder decoder = new(BuildDecoderOptions(config, includeHexDump: true), decoderLogger);
 
             AxisMapper mapper = new(config);
-            bool useXInput = mode.Equals("xinput", StringComparison.OrdinalIgnoreCase);
 
-            await using IXInputSink sink = CreateOutputSink(useXInput, sinkLogger, "replay");
+            await using IXInputSink sink = CreateOutputSink(outputMode, xInputSinkLogger, linuxUInputSinkLogger, "replay");
             await sink.ConnectAsync(cts.Token).ConfigureAwait(false);
 
             await using BinaryCaptureReader reader = new(capturePath);
@@ -362,7 +404,7 @@ public sealed partial class CommandHandlers
             TimeSpan minInterval = TimeSpan.FromSeconds(1.0d / config.UpdateRateHz);
             DateTimeOffset nextWriteAt = DateTimeOffset.MinValue;
 
-            Console.WriteLine($"Replay started from {capturePath} in mode '{(useXInput ? "xinput" : "dry-run")}'. Press Ctrl+C to stop.");
+            Console.WriteLine($"Replay started from {capturePath} in mode '{GetOutputModeLabel(outputMode)}'. Press Ctrl+C to stop.");
 
             await foreach (var frame in reader.ReadFramesAsync(cts.Token))
             {
@@ -406,6 +448,15 @@ public sealed partial class CommandHandlers
             Console.Error.WriteLine(ex.Message);
             Console.Error.WriteLine("Use `--mode dry-run` or install ViGEmBus.");
         }
+        catch (LinuxUInputUnavailableException ex)
+        {
+            Console.Error.WriteLine(ex.Message);
+            Console.Error.WriteLine("Use `--mode dry-run` or run `rcbridge diagnose` to verify `/dev/uinput` readiness.");
+        }
+        catch (LinuxOutputException ex)
+        {
+            Console.Error.WriteLine($"Linux uinput output failed: {ex.Message}");
+        }
         catch (OperationCanceledException)
         {
             Console.WriteLine("Replay canceled.");
@@ -417,19 +468,36 @@ public sealed partial class CommandHandlers
         }
     }
 
-    private static IXInputSink CreateOutputSink(bool useXInput, ILogger<XInputSink> sinkLogger, string commandName)
+    private static IXInputSink CreateOutputSink(
+        OutputMode outputMode,
+        ILogger<XInputSink> xInputSinkLogger,
+        ILogger<LinuxUInputSink> linuxUInputSinkLogger,
+        string commandName)
     {
-        if (!useXInput)
+        switch (outputMode)
         {
-            return new ReplayDryRunSink();
-        }
+            case OutputMode.DryRun:
+                return new ReplayDryRunSink();
 
-        if (!OperatingSystem.IsWindows())
-        {
-            throw new ViGEmUnavailableException($"{commandName} mode 'xinput' is supported only on Windows 10/11.");
-        }
+            case OutputMode.XInput:
+                if (!OperatingSystem.IsWindows())
+                {
+                    throw new ViGEmUnavailableException($"{commandName} mode 'xinput' is supported only on Windows 10/11.");
+                }
 
-        return new XInputSink(sinkLogger);
+                return new XInputSink(xInputSinkLogger);
+
+            case OutputMode.LinuxUInput:
+                if (!OperatingSystem.IsLinux())
+                {
+                    throw new LinuxUInputUnavailableException($"{commandName} mode 'linux-uinput' is supported only on Linux.");
+                }
+
+                return new LinuxUInputSink(linuxUInputSinkLogger);
+
+            default:
+                throw new InvalidOperationException($"Unsupported output mode: {outputMode}.");
+        }
     }
 
     private static void PrintInspectionReport(string capturePath, CaptureInspectionReport report)
@@ -618,6 +686,92 @@ public sealed partial class CommandHandlers
         }
     }
 
+    private static string GetOutputModeLabel(OutputMode outputMode)
+    {
+        return outputMode switch
+        {
+            OutputMode.DryRun => "dry-run",
+            OutputMode.XInput => "xinput",
+            OutputMode.LinuxUInput => "linux-uinput",
+            _ => "unknown",
+        };
+    }
+
+    private static bool TryResolveOutputMode(string? modeValue, string commandName, out OutputMode outputMode)
+    {
+        string requestedMode = string.IsNullOrWhiteSpace(modeValue) ? "auto" : modeValue.Trim().ToLowerInvariant();
+
+        switch (requestedMode)
+        {
+            case "dry-run":
+                outputMode = OutputMode.DryRun;
+                return true;
+
+            case "xinput":
+                if (!OperatingSystem.IsWindows())
+                {
+                    Console.Error.WriteLine($"`{commandName} --mode xinput` is supported only on Windows 10/11.");
+                    Console.Error.WriteLine("Use `--mode linux-uinput` (Linux) or `--mode dry-run`.");
+                    outputMode = default;
+                    return false;
+                }
+
+                outputMode = OutputMode.XInput;
+                return true;
+
+            case "linux-uinput":
+                if (!OperatingSystem.IsLinux())
+                {
+                    Console.Error.WriteLine($"`{commandName} --mode linux-uinput` is supported only on Linux.");
+                    Console.Error.WriteLine("Use `--mode xinput` on Windows or `--mode dry-run`.");
+                    outputMode = default;
+                    return false;
+                }
+
+                UInputProbeResult probe = UInputAvailabilityProbe.Probe();
+                if (!probe.IsAvailable)
+                {
+                    Console.Error.WriteLine($"linux-uinput is not ready: {probe.Message}");
+                    Console.Error.WriteLine("Try `sudo modprobe uinput` and ensure current user can write `/dev/uinput`.");
+                    outputMode = default;
+                    return false;
+                }
+
+                outputMode = OutputMode.LinuxUInput;
+                return true;
+
+            case "auto":
+                if (OperatingSystem.IsWindows())
+                {
+                    outputMode = OutputMode.XInput;
+                    return true;
+                }
+
+                if (OperatingSystem.IsLinux())
+                {
+                    UInputProbeResult autoProbe = UInputAvailabilityProbe.Probe();
+                    if (autoProbe.IsAvailable)
+                    {
+                        outputMode = OutputMode.LinuxUInput;
+                        return true;
+                    }
+
+                    Console.WriteLine($"Auto mode fallback: {autoProbe.Message}");
+                    Console.WriteLine("Falling back to dry-run mode.");
+                    outputMode = OutputMode.DryRun;
+                    return true;
+                }
+
+                outputMode = OutputMode.DryRun;
+                return true;
+
+            default:
+                Console.Error.WriteLine($"Unsupported output mode: '{modeValue}'.");
+                outputMode = default;
+                return false;
+        }
+    }
+
     private static ProtocolChecksumMode ParseChecksumMode(string? value)
     {
         if (value is not null && value.Equals("xor8-tail", StringComparison.OrdinalIgnoreCase))
@@ -654,5 +808,12 @@ public sealed partial class CommandHandlers
 
         [LoggerMessage(EventId = 1303, Level = LogLevel.Error, Message = "Unhandled error in inspect command.")]
         public static partial void InspectUnhandledError(ILogger logger, Exception exception);
+    }
+
+    private enum OutputMode
+    {
+        DryRun = 0,
+        XInput = 1,
+        LinuxUInput = 2,
     }
 }

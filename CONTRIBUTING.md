@@ -16,13 +16,16 @@ dotnet run --project src/RcBridge.App -- diagnose
 dotnet run --project src/RcBridge.App -- capture --port auto --baud 115200 --out captures/session.bin --seconds 20 --note "test sweep"
 dotnet run --project src/RcBridge.App -- inspect --capture captures/session.bin
 dotnet run --project src/RcBridge.App -- inspect --capture captures/session.bin --decode-preview --config config.json
+dotnet run --project src/RcBridge.App -- run --port auto --baud 115200 --config config.json --mode auto
 dotnet run --project src/RcBridge.App -- run --port auto --baud 115200 --config config.json --mode dry-run
 dotnet run --project src/RcBridge.App -- run --port auto --baud 115200 --config config.json --mode xinput
+dotnet run --project src/RcBridge.App -- run --port auto --baud 115200 --config config.json --mode linux-uinput
 dotnet run --project src/RcBridge.App -- replay --capture captures/session.bin --config config.json --mode dry-run
 ```
 
 Notes:
 - `--mode xinput` requires Windows + ViGEmBus.
+- `--mode linux-uinput` requires Linux + writable `/dev/uinput`.
 - `--mode dry-run` is cross-platform and intended for Linux/macOS development/testing.
 
 ## Coding conventions
