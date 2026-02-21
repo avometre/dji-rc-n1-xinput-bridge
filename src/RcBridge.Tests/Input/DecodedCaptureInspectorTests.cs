@@ -24,7 +24,7 @@ public sealed class DecodedCaptureInspectorTests
                     int sweepRaw = 364 + ((i % 30) * 45);
                     int buttonRaw = ((i / 10) % 2 == 0) ? 364 : 1684;
 
-                    byte[] payload = Pack11BitValues([sweepRaw, 1024, 1024, 1024, 364, 364, buttonRaw, 364]);
+                    byte[] payload = Pack11BitValues(new[] { sweepRaw, 1024, 1024, 1024, 364, 364, buttonRaw, 364 });
                     byte[] frame = BuildFrame(payload);
 
                     await writer.WriteFrameAsync(
