@@ -142,13 +142,28 @@ public static class CliRootCommand
             Description = "Capture file path created by `capture` command.",
             Required = true,
         };
+        Option<string> configOption = new("--config")
+        {
+            Description = "Configuration JSON file used by decoder preview.",
+            DefaultValueFactory = static _ => "config.json",
+        };
+        Option<bool> decodePreviewOption = new("--decode-preview")
+        {
+            Description = "Decode frames with current decoder settings and print per-channel activity stats.",
+            DefaultValueFactory = static _ => false,
+        };
 
         command.Add(captureOption);
+        command.Add(configOption);
+        command.Add(decodePreviewOption);
 
         command.SetAction(async (parseResult, cancellationToken) =>
         {
             string capturePath = parseResult.GetRequiredValue(captureOption);
-            await handlers.InspectAsync(capturePath, cancellationToken).ConfigureAwait(false);
+            string configPath = parseResult.GetValue(configOption) ?? "config.json";
+            bool decodePreview = parseResult.GetValue(decodePreviewOption);
+
+            await handlers.InspectAsync(capturePath, configPath, decodePreview, cancellationToken).ConfigureAwait(false);
             return 0;
         });
 

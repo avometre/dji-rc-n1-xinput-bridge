@@ -15,6 +15,7 @@ dotnet run --project src/RcBridge.App -- list-ports
 dotnet run --project src/RcBridge.App -- diagnose
 dotnet run --project src/RcBridge.App -- capture --port auto --baud 115200 --out captures/session.bin --seconds 20 --note "test sweep"
 dotnet run --project src/RcBridge.App -- inspect --capture captures/session.bin
+dotnet run --project src/RcBridge.App -- inspect --capture captures/session.bin --decode-preview --config config.json
 dotnet run --project src/RcBridge.App -- run --port auto --baud 115200 --config config.json
 dotnet run --project src/RcBridge.App -- replay --capture captures/session.bin --config config.json --mode dry-run
 ```

@@ -68,6 +68,11 @@ dotnet run --project src/RcBridge.App -- replay --capture captures/session.bin -
 dotnet run --project src/RcBridge.App -- inspect --capture captures/session.bin
 ```
 
+8. Decode-preview a capture to get channel activity + button/switch candidates:
+```bash
+dotnet run --project src/RcBridge.App -- inspect --capture captures/session.bin --decode-preview --config config.json
+```
+
 ### Troubleshooting
 - COM port not showing:
   - check cable/driver in Device Manager

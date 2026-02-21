@@ -14,6 +14,7 @@ This project intentionally starts with a diagnostic decoder stub and does not cl
 - Falls back to diagnostic byte-map (`byte -> [-1..1]`) when protocol decode is not available.
 - Supports offline replay from capture files (`replay --capture ... --mode dry-run`).
 - Supports offline statistical inspection (`inspect --capture ...`) for frame-size, byte-frequency, and correlation hints.
+- Supports decode-preview inspection (`inspect --decode-preview --config config.json`) to print per-channel min/max/stddev and button/switch candidates.
 
 This is enough to validate end-to-end bridge behavior and tune filtering/mapping while reverse engineering proceeds.
 
@@ -61,3 +62,4 @@ rcbridge capture --port auto --baud 115200 --out captures/my-session.bin --secon
 - Try deterministic movement patterns (single-axis sweeps, trigger-only actions).
 - Keep each session short and labeled.
 - Compare multiple captures for repeated byte offsets and ranges.
+- Use `inspect --decode-preview` after each capture to track which channels are discrete (`binary-like` / `switch-like`) versus analog.

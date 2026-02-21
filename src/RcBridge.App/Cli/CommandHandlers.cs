@@ -210,22 +210,7 @@ public sealed partial class CommandHandlers
             ILogger<XInputSink> sinkLogger = _loggerFactory.CreateLogger<XInputSink>();
 
             using SerialFrameSource source = new(resolvedPort, baud, sourceLogger);
-            DiagnosticDjiDecoder decoder = new(
-                new DjiDecoderOptions
-                {
-                    DiagnosticMode = config.Decoder.DiagnosticMode,
-                    HexDumpFrames = config.Decoder.HexDumpFrames,
-                    MaxChannels = config.Decoder.MaxChannels,
-                    EnableProtocolDecodeAttempt = config.Decoder.EnableProtocolDecodeAttempt,
-                    FrameSyncByte = (byte)config.Decoder.FrameSyncByte,
-                    MinFramePayloadLength = config.Decoder.MinFramePayloadLength,
-                    MaxFramePayloadLength = config.Decoder.MaxFramePayloadLength,
-                    PackedChannelMinRaw = config.Decoder.PackedChannelMinRaw,
-                    PackedChannelMaxRaw = config.Decoder.PackedChannelMaxRaw,
-                    ChecksumMode = ParseChecksumMode(config.Decoder.ChecksumMode),
-                    ChecksumIncludesHeader = config.Decoder.ChecksumIncludesHeader,
-                },
-                decoderLogger);
+            DiagnosticDjiDecoder decoder = new(BuildDecoderOptions(config, includeHexDump: true), decoderLogger);
 
             AxisMapper mapper = new(config);
             await using XInputSink sink = new(sinkLogger);
@@ -286,7 +271,7 @@ public sealed partial class CommandHandlers
         }
     }
 
-    public async Task InspectAsync(string capturePath, CancellationToken cancellationToken)
+    public async Task InspectAsync(string capturePath, string configPath, bool decodePreview, CancellationToken cancellationToken)
     {
         using CancellationTokenSource cts = SetupCtrlC(cancellationToken);
 
@@ -294,8 +279,25 @@ public sealed partial class CommandHandlers
         {
             CaptureInspectionReport report = await CaptureInspector.InspectAsync(capturePath, cts.Token).ConfigureAwait(false);
             PrintInspectionReport(capturePath, report);
+
+            if (!decodePreview)
+            {
+                return;
+            }
+
+            ConfigRoot config = ConfigLoader.LoadAndValidate(configPath);
+            ILogger<DiagnosticDjiDecoder> decoderLogger = _loggerFactory.CreateLogger<DiagnosticDjiDecoder>();
+            DiagnosticDjiDecoder decoder = new(BuildDecoderOptions(config, includeHexDump: false), decoderLogger);
+
+            DecodedCaptureInspectionReport decodedReport =
+                await DecodedCaptureInspector.InspectAsync(capturePath, decoder, cts.Token).ConfigureAwait(false);
+            PrintDecodedInspectionReport(decodedReport);
         }
         catch (FileNotFoundException ex)
+        {
+            Console.Error.WriteLine(ex.Message);
+        }
+        catch (ConfigValidationException ex)
         {
             Console.Error.WriteLine(ex.Message);
         }
@@ -325,22 +327,7 @@ public sealed partial class CommandHandlers
             ILogger<DiagnosticDjiDecoder> decoderLogger = _loggerFactory.CreateLogger<DiagnosticDjiDecoder>();
             ILogger<XInputSink> sinkLogger = _loggerFactory.CreateLogger<XInputSink>();
 
-            DiagnosticDjiDecoder decoder = new(
-                new DjiDecoderOptions
-                {
-                    DiagnosticMode = config.Decoder.DiagnosticMode,
-                    HexDumpFrames = config.Decoder.HexDumpFrames,
-                    MaxChannels = config.Decoder.MaxChannels,
-                    EnableProtocolDecodeAttempt = config.Decoder.EnableProtocolDecodeAttempt,
-                    FrameSyncByte = (byte)config.Decoder.FrameSyncByte,
-                    MinFramePayloadLength = config.Decoder.MinFramePayloadLength,
-                    MaxFramePayloadLength = config.Decoder.MaxFramePayloadLength,
-                    PackedChannelMinRaw = config.Decoder.PackedChannelMinRaw,
-                    PackedChannelMaxRaw = config.Decoder.PackedChannelMaxRaw,
-                    ChecksumMode = ParseChecksumMode(config.Decoder.ChecksumMode),
-                    ChecksumIncludesHeader = config.Decoder.ChecksumIncludesHeader,
-                },
-                decoderLogger);
+            DiagnosticDjiDecoder decoder = new(BuildDecoderOptions(config, includeHexDump: true), decoderLogger);
 
             AxisMapper mapper = new(config);
             bool useXInput = mode.Equals("xinput", StringComparison.OrdinalIgnoreCase);
@@ -492,6 +479,70 @@ public sealed partial class CommandHandlers
             Console.WriteLine(
                 $"- pos[{hint.PositionA}] <-> pos[{hint.PositionB}] : r={hint.Correlation:F3}, n={hint.SampleCount}");
         }
+    }
+
+    private static void PrintDecodedInspectionReport(DecodedCaptureInspectionReport report)
+    {
+        Console.WriteLine();
+        Console.WriteLine("Decode preview:");
+        Console.WriteLine($"- source frames: {report.FrameCount}");
+        Console.WriteLine($"- decoded frames: {report.DecodedFrameCount}");
+
+        if (report.DecodedFrameCount == 0)
+        {
+            Console.WriteLine("- no decodable frames with current decoder config.");
+            return;
+        }
+
+        Console.WriteLine();
+        Console.WriteLine("Decoder hints:");
+        foreach (DecoderHintStat hint in report.DecoderHints)
+        {
+            Console.WriteLine($"- {hint.Hint}: count={hint.Count}, share={(hint.PercentageOfDecodedFrames * 100.0d):F2}%");
+        }
+
+        Console.WriteLine();
+        Console.WriteLine("Channel activity (top 12 by samples):");
+        foreach (ChannelActivityStat stat in report.ChannelStats
+                     .OrderByDescending(static channel => channel.Samples)
+                     .ThenBy(static channel => channel.Channel)
+                     .Take(12))
+        {
+            Console.WriteLine(
+                $"- ch{stat.Channel}: n={stat.Samples}, min={stat.Min:F3}, max={stat.Max:F3}, mean={stat.Mean:F3}, sd={stat.StdDev:F3}, buckets={stat.DistinctBucketCount}");
+        }
+
+        Console.WriteLine();
+        Console.WriteLine("Button/switch candidates:");
+        if (report.ButtonCandidates.Count == 0)
+        {
+            Console.WriteLine("- none");
+            return;
+        }
+
+        foreach (ButtonCandidateHint candidate in report.ButtonCandidates)
+        {
+            Console.WriteLine(
+                $"- ch{candidate.Channel}: {candidate.Kind} ({candidate.Reason}, min={candidate.Min:F3}, max={candidate.Max:F3})");
+        }
+    }
+
+    private static DjiDecoderOptions BuildDecoderOptions(ConfigRoot config, bool includeHexDump)
+    {
+        return new DjiDecoderOptions
+        {
+            DiagnosticMode = config.Decoder.DiagnosticMode,
+            HexDumpFrames = includeHexDump && config.Decoder.HexDumpFrames,
+            MaxChannels = config.Decoder.MaxChannels,
+            EnableProtocolDecodeAttempt = config.Decoder.EnableProtocolDecodeAttempt,
+            FrameSyncByte = (byte)config.Decoder.FrameSyncByte,
+            MinFramePayloadLength = config.Decoder.MinFramePayloadLength,
+            MaxFramePayloadLength = config.Decoder.MaxFramePayloadLength,
+            PackedChannelMinRaw = config.Decoder.PackedChannelMinRaw,
+            PackedChannelMaxRaw = config.Decoder.PackedChannelMaxRaw,
+            ChecksumMode = ParseChecksumMode(config.Decoder.ChecksumMode),
+            ChecksumIncludesHeader = config.Decoder.ChecksumIncludesHeader,
+        };
     }
 
     private static string? ResolvePortOrReport(string requestedPort, string commandName)
