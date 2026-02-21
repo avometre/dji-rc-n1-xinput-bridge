@@ -10,6 +10,7 @@
     <PackageVersion Include="Serilog.Extensions.Logging" Version="8.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.2" />
     <PackageVersion Include="System.IO.Ports" Version="8.0.0" />
+    <PackageVersion Include="System.Management" Version="8.0.0" />
     <PackageVersion Include="Nefarius.ViGEm.Client" Version="1.21.256" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
     <PackageVersion Include="xunit" Version="2.6.3" />

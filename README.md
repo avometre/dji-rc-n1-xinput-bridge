@@ -42,13 +42,16 @@ dotnet run --project src/RcBridge.App -- list-ports
 
 3. Capture frames:
 ```bash
-dotnet run --project src/RcBridge.App -- capture --port COM5 --baud 115200 --out captures/session.bin --seconds 20
+dotnet run --project src/RcBridge.App -- capture --port auto --baud 115200 --out captures/session.bin --seconds 20
 ```
 
 4. Run bridge:
 ```bash
-dotnet run --project src/RcBridge.App -- run --port COM5 --baud 115200 --config config.json
+dotnet run --project src/RcBridge.App -- run --port auto --baud 115200 --config config.json
 ```
+
+`--port auto` tries to detect DJI VCOM port by friendly name.
+If multiple candidates exist or no DJI match is found, use explicit `--port COMx`.
 
 5. Diagnose environment:
 ```bash
@@ -93,8 +96,8 @@ No DJI proprietary binaries are distributed in this repository.
 ### Hızlı Başlangıç
 ```bash
 dotnet run --project src/RcBridge.App -- list-ports
-dotnet run --project src/RcBridge.App -- capture --port COM5 --baud 115200 --out captures/session.bin --seconds 20
-dotnet run --project src/RcBridge.App -- run --port COM5 --baud 115200 --config config.json
+dotnet run --project src/RcBridge.App -- capture --port auto --baud 115200 --out captures/session.bin --seconds 20
+dotnet run --project src/RcBridge.App -- run --port auto --baud 115200 --config config.json
 ```
 
 ### Sorun Giderme

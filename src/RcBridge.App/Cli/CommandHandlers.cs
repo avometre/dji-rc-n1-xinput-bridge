@@ -21,7 +21,7 @@ public sealed partial class CommandHandlers
 
     public static void ListPorts()
     {
-        IReadOnlyList<string> ports = SerialPortDiscovery.ListPorts();
+        IReadOnlyList<SerialPortInfo> ports = SerialPortDiscovery.ListPortInfos();
         if (ports.Count == 0)
         {
             Console.WriteLine("No COM ports found.");
@@ -29,15 +29,14 @@ public sealed partial class CommandHandlers
         }
 
         Console.WriteLine("Detected COM ports:");
-        foreach (string port in ports)
-        {
-            Console.WriteLine($"- {port}");
-        }
+        PrintDetectedPorts(ports);
     }
 
     public static void Diagnose()
     {
-        IReadOnlyList<string> ports = SerialPortDiscovery.ListPorts();
+        IReadOnlyList<SerialPortInfo> ports = SerialPortDiscovery.ListPortInfos();
+        DjiPortResolution autoPortResolution = DjiPortResolver.Resolve("auto", ports);
+
         ViGEmProbeResult probe;
         if (OperatingSystem.IsWindows())
         {
@@ -58,10 +57,30 @@ public sealed partial class CommandHandlers
         }
         else
         {
-            foreach (string port in ports)
-            {
-                Console.WriteLine($"- {port}");
-            }
+            PrintDetectedPorts(ports);
+        }
+
+        Console.WriteLine();
+        Console.WriteLine("Auto port selection (--port auto):");
+        switch (autoPortResolution.Status)
+        {
+            case PortResolutionStatus.Resolved:
+                Console.WriteLine($"- OK: {autoPortResolution.PortName}");
+                break;
+            case PortResolutionStatus.AmbiguousMatches:
+                Console.WriteLine("- NOT RESOLVED: multiple DJI-like COM ports found.");
+                PrintCandidates(autoPortResolution.Candidates);
+                break;
+            case PortResolutionStatus.NoDjiMatch:
+                Console.WriteLine("- NOT RESOLVED: no DJI-like VCOM name match.");
+                Console.WriteLine("  Use `--port COMx` manually or verify DJI USB/VCOM driver.");
+                break;
+            case PortResolutionStatus.NoPortsDetected:
+                Console.WriteLine("- NOT RESOLVED: no COM ports detected.");
+                break;
+            default:
+                Console.WriteLine("- NOT RESOLVED.");
+                break;
         }
 
         Console.WriteLine();
@@ -79,28 +98,41 @@ public sealed partial class CommandHandlers
         {
             Console.WriteLine("2. Install DJI USB/VCOM driver (DJI Assistant 2 may install it), then reconnect RC-N1.");
         }
+        else if (autoPortResolution.Status == PortResolutionStatus.AmbiguousMatches)
+        {
+            Console.WriteLine("2. Use explicit port: `rcbridge run --port COMx --baud 115200 --config config.json`.");
+            Console.WriteLine("3. Close apps that may keep COM busy (e.g., DJI Assistant 2).");
+        }
         else
         {
-            Console.WriteLine("2. Run `rcbridge capture --port COMx --baud 115200 --out captures/session.bin --seconds 20`.");
-            Console.WriteLine("3. Tune `config.json`, then run `rcbridge run --port COMx --baud 115200 --config config.json`.");
+            Console.WriteLine("2. Run `rcbridge capture --port auto --baud 115200 --out captures/session.bin --seconds 20`.");
+            Console.WriteLine("3. Tune `config.json`, then run `rcbridge run --port auto --baud 115200 --config config.json`.");
         }
     }
 
     public async Task CaptureAsync(string port, int baud, string outputPath, int seconds, CancellationToken cancellationToken)
     {
+        string? resolvedPortCandidate = ResolvePortOrReport(port, "capture");
+        if (resolvedPortCandidate is null)
+        {
+            return;
+        }
+
+        string resolvedPort = resolvedPortCandidate;
+
         using CancellationTokenSource cts = SetupCtrlC(cancellationToken);
         ILogger<SerialFrameSource> sourceLogger = _loggerFactory.CreateLogger<SerialFrameSource>();
 
         try
         {
-            using SerialFrameSource source = new(port, baud, sourceLogger);
+            using SerialFrameSource source = new(resolvedPort, baud, sourceLogger);
             await using BinaryCaptureWriter writer = new(outputPath);
 
             DateTimeOffset stopAt = DateTimeOffset.UtcNow.AddSeconds(Math.Max(1, seconds));
             int frameCount = 0;
             int totalBytes = 0;
 
-            Console.WriteLine($"Capturing on {port} @ {baud} for {seconds} second(s)... Press Ctrl+C to stop.");
+            Console.WriteLine($"Capturing on {resolvedPort} @ {baud} for {seconds} second(s)... Press Ctrl+C to stop.");
 
             await foreach (var frame in source.ReadFramesAsync(cts.Token))
             {
@@ -120,11 +152,11 @@ public sealed partial class CommandHandlers
         }
         catch (UnauthorizedAccessException)
         {
-            Console.Error.WriteLine($"Cannot open {port}. It may be in use by another app (e.g., DJI Assistant 2).");
+            Console.Error.WriteLine($"Cannot open {resolvedPort}. It may be in use by another app (e.g., DJI Assistant 2).");
         }
         catch (IOException ex)
         {
-            Console.Error.WriteLine($"Serial I/O error while capturing from {port}: {ex.Message}");
+            Console.Error.WriteLine($"Serial I/O error while capturing from {resolvedPort}: {ex.Message}");
         }
         catch (OperationCanceledException)
         {
@@ -140,6 +172,14 @@ public sealed partial class CommandHandlers
             return;
         }
 
+        string? resolvedPortCandidate = ResolvePortOrReport(port, "run");
+        if (resolvedPortCandidate is null)
+        {
+            return;
+        }
+
+        string resolvedPort = resolvedPortCandidate;
+
         using CancellationTokenSource cts = SetupCtrlC(cancellationToken);
 
         try
@@ -150,7 +190,7 @@ public sealed partial class CommandHandlers
             ILogger<DiagnosticDjiDecoder> decoderLogger = _loggerFactory.CreateLogger<DiagnosticDjiDecoder>();
             ILogger<XInputSink> sinkLogger = _loggerFactory.CreateLogger<XInputSink>();
 
-            using SerialFrameSource source = new(port, baud, sourceLogger);
+            using SerialFrameSource source = new(resolvedPort, baud, sourceLogger);
             DiagnosticDjiDecoder decoder = new(
                 new DjiDecoderOptions
                 {
@@ -197,7 +237,7 @@ public sealed partial class CommandHandlers
         }
         catch (UnauthorizedAccessException)
         {
-            Console.Error.WriteLine($"Cannot open {port}. It may be in use by another app or require reconnect.");
+            Console.Error.WriteLine($"Cannot open {resolvedPort}. It may be in use by another app or require reconnect.");
         }
         catch (ViGEmUnavailableException ex)
         {
@@ -206,7 +246,7 @@ public sealed partial class CommandHandlers
         }
         catch (IOException ex)
         {
-            Console.Error.WriteLine($"Serial I/O error on {port}: {ex.Message}");
+            Console.Error.WriteLine($"Serial I/O error on {resolvedPort}: {ex.Message}");
         }
         catch (OperationCanceledException)
         {
@@ -216,6 +256,61 @@ public sealed partial class CommandHandlers
         {
             LogMessages.RunUnhandledError(_logger, ex);
             Console.Error.WriteLine($"Run failed: {ex.Message}");
+        }
+    }
+
+    private static string? ResolvePortOrReport(string requestedPort, string commandName)
+    {
+        IReadOnlyList<SerialPortInfo> ports = SerialPortDiscovery.ListPortInfos();
+        DjiPortResolution resolution = DjiPortResolver.Resolve(requestedPort, ports);
+
+        switch (resolution.Status)
+        {
+            case PortResolutionStatus.Resolved:
+                Console.WriteLine($"Auto-selected {resolution.PortName} for `{commandName}`.");
+                return resolution.PortName;
+            case PortResolutionStatus.ManualPortSelected:
+                return resolution.PortName;
+            case PortResolutionStatus.ManualPortNotFound:
+                Console.Error.WriteLine($"Requested port '{requestedPort}' was not found.");
+                PrintDetectedPorts(ports);
+                return null;
+            case PortResolutionStatus.NoPortsDetected:
+                Console.Error.WriteLine("No COM ports detected. Install/check DJI USB/VCOM driver and reconnect RC-N1.");
+                return null;
+            case PortResolutionStatus.NoDjiMatch:
+                Console.Error.WriteLine("`--port auto` could not find a DJI-like VCOM port.");
+                PrintDetectedPorts(ports);
+                Console.Error.WriteLine("Use `--port COMx` manually if you know the correct device.");
+                return null;
+            case PortResolutionStatus.AmbiguousMatches:
+                Console.Error.WriteLine("`--port auto` found multiple DJI-like ports. Please select one explicitly with `--port COMx`.");
+                PrintCandidates(resolution.Candidates);
+                return null;
+            default:
+                return null;
+        }
+    }
+
+    private static void PrintDetectedPorts(IReadOnlyList<SerialPortInfo> ports)
+    {
+        foreach (SerialPortInfo port in ports)
+        {
+            Console.WriteLine($"- {port.DisplayName}");
+        }
+    }
+
+    private static void PrintCandidates(IReadOnlyList<DjiPortCandidate> candidates)
+    {
+        if (candidates.Count == 0)
+        {
+            return;
+        }
+
+        Console.Error.WriteLine("Ranked candidates:");
+        foreach (DjiPortCandidate candidate in candidates)
+        {
+            Console.Error.WriteLine($"- {candidate.Port.DisplayName} (score: {candidate.Score}, reason: {candidate.MatchReason})");
         }
     }
 

@@ -33,8 +33,8 @@ public static class CliRootCommand
 
         Option<string> portOption = new("--port")
         {
-            Description = "Serial port name (e.g., COM5)",
-            Required = true,
+            Description = "Serial port name (COMx) or 'auto' to detect DJI VCOM.",
+            DefaultValueFactory = static _ => "auto",
         };
 
         Option<int> baudOption = new("--baud")
@@ -62,7 +62,7 @@ public static class CliRootCommand
 
         command.SetAction(async (parseResult, cancellationToken) =>
         {
-            string port = parseResult.GetRequiredValue(portOption);
+            string port = parseResult.GetValue(portOption) ?? "auto";
             int baud = parseResult.GetValue(baudOption);
             string outputPath = parseResult.GetRequiredValue(outOption);
             int seconds = parseResult.GetValue(secondsOption);
@@ -80,8 +80,8 @@ public static class CliRootCommand
 
         Option<string> portOption = new("--port")
         {
-            Description = "Serial port name (e.g., COM5)",
-            Required = true,
+            Description = "Serial port name (COMx) or 'auto' to detect DJI VCOM.",
+            DefaultValueFactory = static _ => "auto",
         };
 
         Option<int> baudOption = new("--baud")
@@ -102,7 +102,7 @@ public static class CliRootCommand
 
         command.SetAction(async (parseResult, cancellationToken) =>
         {
-            string port = parseResult.GetRequiredValue(portOption);
+            string port = parseResult.GetValue(portOption) ?? "auto";
             int baud = parseResult.GetValue(baudOption);
             string configPath = parseResult.GetValue(configOption) ?? "config.json";
 

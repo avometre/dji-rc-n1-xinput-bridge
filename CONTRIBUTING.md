@@ -13,8 +13,8 @@ dotnet test RcBridge.sln -c Debug
 ```bash
 dotnet run --project src/RcBridge.App -- list-ports
 dotnet run --project src/RcBridge.App -- diagnose
-dotnet run --project src/RcBridge.App -- capture --port COM5 --baud 115200 --out captures/session.bin --seconds 20
-dotnet run --project src/RcBridge.App -- run --port COM5 --baud 115200 --config config.json
+dotnet run --project src/RcBridge.App -- capture --port auto --baud 115200 --out captures/session.bin --seconds 20
+dotnet run --project src/RcBridge.App -- run --port auto --baud 115200 --config config.json
 ```
 
 ## Coding conventions
