@@ -16,6 +16,31 @@ public static class ConfigValidator
             errors.Add("decoder.maxChannels must be between 1 and 32.");
         }
 
+        if (config.Decoder.FrameSyncByte is < 0 or > 255)
+        {
+            errors.Add("decoder.frameSyncByte must be between 0 and 255.");
+        }
+
+        if (config.Decoder.MinFramePayloadLength is < 1 or > 255)
+        {
+            errors.Add("decoder.minFramePayloadLength must be between 1 and 255.");
+        }
+
+        if (config.Decoder.MaxFramePayloadLength is < 1 or > 255)
+        {
+            errors.Add("decoder.maxFramePayloadLength must be between 1 and 255.");
+        }
+
+        if (config.Decoder.MinFramePayloadLength > config.Decoder.MaxFramePayloadLength)
+        {
+            errors.Add("decoder.minFramePayloadLength must be <= decoder.maxFramePayloadLength.");
+        }
+
+        if (config.Decoder.PackedChannelMinRaw >= config.Decoder.PackedChannelMaxRaw)
+        {
+            errors.Add("decoder.packedChannelMinRaw must be < decoder.packedChannelMaxRaw.");
+        }
+
         ValidateAxisBinding("axes.leftThumbX", config.Axes.LeftThumbX, errors);
         ValidateAxisBinding("axes.leftThumbY", config.Axes.LeftThumbY, errors);
         ValidateAxisBinding("axes.rightThumbX", config.Axes.RightThumbX, errors);

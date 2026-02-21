@@ -5,10 +5,10 @@ Open-source Windows 10/11 bridge application: reads DJI RC-N1 (RC231) controller
 ## English
 
 ### What It Is
-`rcbridge` ingests raw serial data from RC-N1, decodes it (diagnostic stub for now), applies normalization and filtering, then emits XInput reports to a virtual Xbox 360 controller.
+`rcbridge` ingests raw serial data from RC-N1, attempts frame extraction + packed channel decode (experimental), applies normalization/filtering, then emits XInput reports to a virtual Xbox 360 controller.
 
 Core pipeline:
-`SerialFrameSource -> DjiDecoder (diagnostic stub) -> AxisMapper/Filters -> XInputSink`
+`SerialFrameSource -> DjiDecoder (framing attempt + diagnostic fallback) -> AxisMapper/Filters -> XInputSink`
 
 MVP status:
 - COM port listing

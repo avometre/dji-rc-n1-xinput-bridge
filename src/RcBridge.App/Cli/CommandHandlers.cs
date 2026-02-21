@@ -216,6 +216,12 @@ public sealed partial class CommandHandlers
                     DiagnosticMode = config.Decoder.DiagnosticMode,
                     HexDumpFrames = config.Decoder.HexDumpFrames,
                     MaxChannels = config.Decoder.MaxChannels,
+                    EnableProtocolDecodeAttempt = config.Decoder.EnableProtocolDecodeAttempt,
+                    FrameSyncByte = (byte)config.Decoder.FrameSyncByte,
+                    MinFramePayloadLength = config.Decoder.MinFramePayloadLength,
+                    MaxFramePayloadLength = config.Decoder.MaxFramePayloadLength,
+                    PackedChannelMinRaw = config.Decoder.PackedChannelMinRaw,
+                    PackedChannelMaxRaw = config.Decoder.PackedChannelMaxRaw,
                 },
                 decoderLogger);
 
@@ -323,6 +329,12 @@ public sealed partial class CommandHandlers
                     DiagnosticMode = config.Decoder.DiagnosticMode,
                     HexDumpFrames = config.Decoder.HexDumpFrames,
                     MaxChannels = config.Decoder.MaxChannels,
+                    EnableProtocolDecodeAttempt = config.Decoder.EnableProtocolDecodeAttempt,
+                    FrameSyncByte = (byte)config.Decoder.FrameSyncByte,
+                    MinFramePayloadLength = config.Decoder.MinFramePayloadLength,
+                    MaxFramePayloadLength = config.Decoder.MaxFramePayloadLength,
+                    PackedChannelMinRaw = config.Decoder.PackedChannelMinRaw,
+                    PackedChannelMaxRaw = config.Decoder.PackedChannelMaxRaw,
                 },
                 decoderLogger);
 

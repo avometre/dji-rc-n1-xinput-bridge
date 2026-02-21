@@ -4,8 +4,10 @@ This project intentionally starts with a diagnostic decoder stub and does not cl
 
 ## Current decoder behavior
 - Consumes raw serial frames from `System.IO.Ports`.
+- Attempts a length-prefixed frame extraction (`sync + payloadLength + payload`) with configurable sync byte.
+- Attempts packed 11-bit channel decode from extracted payloads (experimental).
 - Optionally logs per-frame hex dump.
-- Maps first N bytes to channels heuristically (`byte -> [-1..1]`).
+- Falls back to diagnostic byte-map (`byte -> [-1..1]`) when protocol decode is not available.
 - Supports offline replay from capture files (`replay --capture ... --mode dry-run`).
 - Supports offline statistical inspection (`inspect --capture ...`) for frame-size, byte-frequency, and correlation hints.
 

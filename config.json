@@ -1,6 +1,12 @@
 {
   "updateRateHz": 100,
   "decoder": {
+    "enableProtocolDecodeAttempt": true,
+    "frameSyncByte": 85,
+    "minFramePayloadLength": 11,
+    "maxFramePayloadLength": 64,
+    "packedChannelMinRaw": 364,
+    "packedChannelMaxRaw": 1684,
     "diagnosticMode": true,
     "hexDumpFrames": false,
     "maxChannels": 8
